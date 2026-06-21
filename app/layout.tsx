@@ -16,6 +16,12 @@ export const metadata: Metadata = {
   title: "iNeedTools — Need a Tool? We Have It.",
   description:
     "19 free developer tools in one place — SQL generator, JSON grid viewer, image converter, image & PDF size adjuster, QR code generator, age calculator, regex tester, Base64, UUID, hash generator, color tools and more. Zero sign-up, runs entirely in your browser.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

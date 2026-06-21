@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6d28d9"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .ring { transform-origin: 16px 16px; animation: spin 4s linear infinite; }
+      .dot1 { animation: pulse 2s ease-in-out infinite; }
+      .dot2 { animation: pulse 2s ease-in-out infinite 0.66s; }
+      .dot3 { animation: pulse 2s ease-in-out infinite 1.33s; }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <!-- shine overlay -->
+  <rect width="32" height="16" rx="7" fill="url(#shine)"/>
+
+  <!-- spinning ring dots -->
+  <g class="ring">
+    <circle class="dot1" cx="16" cy="3.5" r="1.4" fill="#e879f9"/>
+    <circle class="dot2" cx="28.5" cy="16" r="1.4" fill="#818cf8"/>
+    <circle class="dot3" cx="3.5" cy="16" r="1.4" fill="#c084fc"/>
+  </g>
+
+  <!-- Y letter -->
+  <text x="16" y="22" font-family="Arial Black,Arial,sans-serif" font-size="17" font-weight="900"
+        fill="white" text-anchor="middle" filter="url(#glow)" letter-spacing="-0.5">Y</text>
+</svg>
