@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
@@ -212,12 +212,12 @@ export default function CsvTools() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#0891b2", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#0891b2", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(8,145,178,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · CSV Tools</p>
+        <p>© 2026 iNeedTools · CSV Tools</p>
       </footer>
     </div>
   );

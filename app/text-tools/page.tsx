@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ function toSnake(s: string)     { return s.replace(/\s+/g,"_").replace(/([a-z])(
 function toKebab(s: string)     { return s.replace(/\s+/g,"-").replace(/([a-z])([A-Z])/g,"$1-$2").replace(/_/g,"-").toLowerCase(); }
 
 export default function TextTools() {
-  const [input, setInput]   = useState("The quick brown fox jumps over the lazy dog.\nDevForge helps developers build faster.\nSame line repeated.\nSame line repeated.");
+  const [input, setInput]   = useState("The quick brown fox jumps over the lazy dog.\niNeedTools helps developers build faster.\nSame line repeated.\nSame line repeated.");
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -131,12 +131,12 @@ export default function TextTools() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#7c3aed", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#7c3aed", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(124,58,237,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Text Tools</p>
+        <p>© 2026 iNeedTools · Text Tools</p>
       </footer>
     </div>
   );

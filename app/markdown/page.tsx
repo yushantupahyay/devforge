@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 
-const SAMPLE = `# Hello, DevForge! 👋
+const SAMPLE = `# Hello, iNeedTools! 👋
 
 Welcome to the **Markdown Preview** tool. Edit this text on the left and see the live rendered output on the right.
 
@@ -12,7 +12,7 @@ Welcome to the **Markdown Preview** tool. Edit this text on the left and see the
 
 - **Bold text** and *italic text*
 - \`inline code\` highlighting
-- [Clickable links](https://devforge.dev)
+- [Clickable links](https://iNeedTools.dev)
 - Ordered and unordered lists
 - Code blocks with syntax hints
 - Blockquotes and horizontal rules
@@ -23,7 +23,7 @@ Welcome to the **Markdown Preview** tool. Edit this text on the left and see the
 const greet = (name) => {
   return \`Hello, \${name}!\`;
 };
-console.log(greet("DevForge"));
+console.log(greet("iNeedTools"));
 \`\`\`
 
 ## Why Markdown?
@@ -38,7 +38,7 @@ console.log(greet("DevForge"));
 
 ---
 
-Made with ❤️ by **DevForge**
+Made with ❤️ by **iNeedTools**
 `;
 
 function escHtml(s: string) {
@@ -217,12 +217,12 @@ export default function MarkdownPreview() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#d97706", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#d97706", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(217,119,6,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Markdown Preview</p>
+        <p>© 2026 iNeedTools · Markdown Preview</p>
       </footer>
     </div>
   );

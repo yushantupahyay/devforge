@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevForge — Code Smarter, Build Faster",
+  title: "iNeedTools — Need a Tool? We Have It.",
   description:
-    "Eight essential developer tools in one place — JSON formatter, Regex tester, Base64, UUID generator, Hash generator, Timestamp converter, Color tools and more. 100% free, no sign-up, runs entirely in your browser.",
+    "19 free developer tools in one place — SQL generator, JSON grid viewer, image converter, image & PDF size adjuster, QR code generator, age calculator, regex tester, Base64, UUID, hash generator, color tools and more. Zero sign-up, runs entirely in your browser.",
 };
 
 export default function RootLayout({

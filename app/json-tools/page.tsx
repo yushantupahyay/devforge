@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useCallback, Fragment, useRef, useEffect } from "react";
 import Link from "next/link";
@@ -59,7 +59,7 @@ const isArrOfObj = (v: unknown): v is Record<string,unknown>[] =>
   Array.isArray(v) && v.length > 0 &&
   typeof v[0] === "object" && v[0] !== null && !Array.isArray(v[0]);
 
-/* ── Cell: renders a single value ──────────────────────── */
+/* ── Cell: renders a single primitive value ─────────── */
 function Cell({ value }: { value: unknown }) {
   if (value === null || value === undefined)
     return <span style={{ color:"#94a3b8", fontStyle:"italic", fontSize:12 }}>null</span>;
@@ -67,36 +67,15 @@ function Cell({ value }: { value: unknown }) {
     return <span style={{ background:"rgba(59,130,246,0.1)", color:"#2563eb", padding:"1px 7px", borderRadius:4, fontSize:12, fontWeight:700 }}>{String(value)}</span>;
   if (typeof value === "number")
     return <span style={{ background:"rgba(249,115,22,0.1)", color:"#ea580c", padding:"1px 7px", borderRadius:4, fontSize:12, fontWeight:700 }}>{String(value)}</span>;
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color:"#94a3b8", fontSize:12 }}>[ ]</span>;
-    if (value.every(v => typeof v !== "object" || v === null))
-      return <span style={{ color:"#0891b2", fontSize:12 }}>{value.map(v => String(v ?? "null")).join(", ")}</span>;
-    return <span style={{ background:"rgba(8,145,178,0.09)", color:"#0284c7", padding:"2px 8px", borderRadius:4, fontSize:11, fontWeight:700 }}>[ {value.length} items ]</span>;
-  }
-  if (typeof value === "object") {
-    const entries = Object.entries(value as Record<string,unknown>);
-    if (entries.length === 0) return <span style={{ color:"#94a3b8", fontSize:12 }}>{"{}"}</span>;
-    return (
-      <div style={{ display:"flex", flexWrap:"wrap", gap:3 }}>
-        {entries.slice(0, 5).map(([k, v]) => (
-          <span key={k} style={{ fontSize:10, fontFamily:"monospace", background:"rgba(124,58,237,0.08)", borderRadius:4, padding:"2px 6px", color:"#5b21b6", whiteSpace:"nowrap" }}>
-            <span style={{ opacity:0.6 }}>{k}:</span>{" "}
-            {typeof v === "object" ? (Array.isArray(v) ? `[${(v as unknown[]).length}]` : "{…}") : String(v ?? "null").slice(0, 18)}
-          </span>
-        ))}
-        {entries.length > 5 && <span style={{ fontSize:10, color:"#94a3b8" }}>+{entries.length-5}</span>}
-      </div>
-    );
-  }
   return <span style={{ color:"#0f0a1e", fontSize:13 }}>{String(value)}</span>;
 }
 
-/* ── sub-table for array-of-objects inside a tree row ── */
-function ArrOfObjTable({ arr }: { arr: Record<string,unknown>[] }) {
+/* ── sub-table for array-of-objects ─────────────────── */
+function ArrOfObjTable({ arr, noMargin }: { arr: Record<string,unknown>[]; noMargin?: boolean }) {
   const cols = Array.from(new Set(arr.flatMap(r => Object.keys(r))));
   const th: React.CSSProperties = { padding:"7px 14px", textAlign:"left", fontWeight:700, fontSize:10, letterSpacing:"0.07em", textTransform:"uppercase", color:"rgba(15,10,30,0.45)", borderBottom:"1px solid rgba(124,58,237,0.12)", whiteSpace:"nowrap" };
   return (
-    <div style={{ margin:"6px 0 6px 28px", borderRadius:10, overflow:"hidden", border:"1px solid rgba(124,58,237,0.18)" }}>
+    <div style={{ margin: noMargin ? "0" : "6px 0 6px 28px", borderRadius:10, overflow:"hidden", border:"1px solid rgba(124,58,237,0.18)" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
         <thead>
           <tr style={{ background:"rgba(124,58,237,0.07)" }}>
@@ -108,11 +87,77 @@ function ArrOfObjTable({ arr }: { arr: Record<string,unknown>[] }) {
           {arr.map((row, i) => (
             <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.04)", background: i%2===0?"#fff":"rgba(124,58,237,0.03)" }}>
               <td style={{ padding:"7px 14px", color:"rgba(15,10,30,0.3)", fontWeight:700 }}>{i+1}</td>
-              {cols.map(c => <td key={c} style={{ padding:"7px 14px" }}><Cell value={row[c]} /></td>)}
+              {cols.map(c => <td key={c} style={{ padding:"7px 14px" }}><ExpandableCell value={row[c]} /></td>)}
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/* ── ExpandableCell: cell that can expand nested data ─ */
+function ExpandableCell({ value }: { value: unknown }) {
+  const [expanded, setExpanded] = useState(false);
+
+  /* primitives — plain render */
+  if (typeof value !== "object" || value === null) return <Cell value={value} />;
+
+  const valIsArr = Array.isArray(value);
+
+  /* empty */
+  if (valIsArr && (value as unknown[]).length === 0)
+    return <span style={{ color:"#94a3b8", fontSize:12 }}>[ ]</span>;
+  if (!valIsArr && Object.keys(value as object).length === 0)
+    return <span style={{ color:"#94a3b8", fontSize:12 }}>{"{}"}</span>;
+
+  /* plain array of primitives — no expand needed */
+  if (valIsArr && (value as unknown[]).every(v => typeof v !== "object" || v === null))
+    return <span style={{ color:"#0891b2", fontSize:12 }}>{(value as unknown[]).map(v => String(v ?? "null")).join(", ")}</span>;
+
+  const size = valIsArr ? (value as unknown[]).length : Object.keys(value as object).length;
+  const label = valIsArr
+    ? `[ ${size} item${size !== 1 ? "s" : ""} ]`
+    : `{ ${size} key${size !== 1 ? "s" : ""} }`;
+
+  return (
+    <div>
+      {/* clickable chip — the + / − is part of the chip */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{
+          display:"inline-flex", alignItems:"center", gap:5,
+          fontSize:11, fontWeight:700, cursor:"pointer",
+          background: expanded ? "rgba(124,58,237,0.18)" : "rgba(124,58,237,0.08)",
+          color:"#7c3aed", border:"1px solid rgba(124,58,237,0.28)",
+          borderRadius:6, padding:"3px 9px", lineHeight:1.4,
+        }}
+      >
+        <span style={{ fontWeight:900, fontSize:13, lineHeight:1 }}>{expanded ? "−" : "+"}</span>
+        {label}
+      </button>
+
+      {/* expanded content — inline below the chip */}
+      {expanded && (
+        <div style={{ marginTop:8 }}>
+          {isArrOfObj(value) ? (
+            <ArrOfObjTable arr={value as Record<string,unknown>[]} noMargin />
+          ) : valIsArr ? (
+            <div style={{ fontFamily:"monospace", fontSize:12, background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"8px 12px", border:"1px solid rgba(0,0,0,0.06)" }}>
+              {(value as unknown[]).map((item, idx) => (
+                <div key={idx} style={{ padding:"3px 0", borderBottom: idx < (value as unknown[]).length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none" }}>
+                  <span style={{ color:"rgba(15,10,30,0.3)", marginRight:6 }}>{idx + 1}.</span>
+                  <span style={{ color: typeof item === "object" ? "#7c3aed" : "#0f0a1e" }}>
+                    {typeof item === "object" ? JSON.stringify(item) : String(item ?? "null")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <TreeExplorer data={value} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -214,7 +259,16 @@ export default function JsonToolsPage() {
   const [copied, setCopied]     = useState(false);
   const [splitPct, setSplitPct] = useState(50);
   const [dragging, setDragging] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef  = useRef<HTMLDivElement>(null);
+  const textareaRef   = useRef<HTMLTextAreaElement>(null);
+
+  /* auto-resize textarea to fit content */
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.max(200, el.scrollHeight) + "px";
+  }, [input]);
 
   useEffect(() => {
     if (!dragging) return;
@@ -271,6 +325,25 @@ export default function JsonToolsPage() {
     if (sortCol === col) { if (sortDir === "asc") setSortDir("desc"); else { setSortCol(null); setSortDir("asc"); } }
     else { setSortCol(col); setSortDir("asc"); }
   };
+
+  /* auto-format valid JSON when pasted */
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData.getData("text");
+    try {
+      const obj = JSON.parse(text);
+      e.preventDefault();
+      setInput(JSON.stringify(obj, null, 2));
+      setSortCol(null);
+      setFilter("");
+    } catch {
+      /* not valid JSON — let default paste proceed */
+    }
+  }, []);
+
+  const formatInput = useCallback(() => {
+    if (!parsed) return;
+    setInput(JSON.stringify(parsed, null, 2));
+  }, [parsed]);
 
   const codeOutput = useMemo(() => {
     if (!parsed) return "";
@@ -348,13 +421,28 @@ export default function JsonToolsPage() {
 
           {/* ── LEFT: input ──── */}
           <div style={{ width:`${splitPct}%`, minWidth:220, flexShrink:0 }}>
-            <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:6 }}>Input JSON</label>
+            {/* label + format button */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+              <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase" }}>
+                Input JSON
+              </label>
+              {parsed && (
+                <button
+                  onClick={formatInput}
+                  style={{ fontSize:11, fontWeight:700, padding:"4px 11px", borderRadius:7, cursor:"pointer", background:"rgba(124,58,237,0.07)", color:"#7c3aed", border:"1px solid rgba(124,58,237,0.2)" }}
+                >
+                  ⌥ Format
+                </button>
+              )}
+            </div>
             <textarea
+              ref={textareaRef}
               className="field field-mono"
               value={input}
               onChange={e => { setInput(e.target.value); setSortCol(null); setFilter(""); }}
-              placeholder={"Paste any JSON here…\n\n• Arrays of objects → sortable grid\n• Single objects → tree explorer\n• Deeply nested → auto-expanded"}
-              style={{ minHeight:480, borderRadius:14, fontSize:12.5, resize:"vertical", width:"100%" }}
+              onPaste={handlePaste}
+              placeholder={"Paste any JSON here — it will auto-format on paste.\n\nExamples:\n• Array of objects  → sortable grid, nested cells expand inline\n• Single object     → tree explorer with + / − buttons\n• Deeply nested     → expand each level inline"}
+              style={{ borderRadius:14, fontSize:12.5, resize:"none", width:"100%", minHeight:200, overflow:"hidden", boxSizing:"border-box" }}
             />
 
             {/* status */}
@@ -376,19 +464,15 @@ export default function JsonToolsPage() {
             onMouseDown={e => { e.preventDefault(); setDragging(true); }}
             style={{ width:22, flexShrink:0, cursor:"col-resize", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, padding:"12px 0", alignSelf:"stretch", minHeight:200 }}
           >
-            {/* shrink left button */}
             <button onClick={() => setSplitPct(p => Math.max(22, p - 5))} title="Shift left" style={{ width:18, height:18, borderRadius:4, border:"1px solid rgba(124,58,237,0.25)", background:"rgba(124,58,237,0.07)", color:"#7c3aed", cursor:"pointer", fontSize:10, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>◀</button>
-            {/* grip lines */}
             <div style={{ display:"flex", flexDirection:"column", gap:3, alignItems:"center" }}>
               {[0,1,2,3,4].map(i => (
                 <div key={i} style={{ width: dragging ? 6 : 4, height:2, borderRadius:2, background: dragging ? "#7c3aed" : "rgba(124,58,237,0.3)", transition:"all 0.15s" }} />
               ))}
             </div>
-            {/* percentage label */}
             <span style={{ fontSize:9, fontWeight:700, color: dragging ? "#7c3aed" : "rgba(124,58,237,0.45)", fontFamily:"monospace", writingMode:"vertical-rl", letterSpacing:"0.05em" }}>
               {Math.round(splitPct)}%
             </span>
-            {/* expand right button */}
             <button onClick={() => setSplitPct(p => Math.min(78, p + 5))} title="Shift right" style={{ width:18, height:18, borderRadius:4, border:"1px solid rgba(124,58,237,0.25)", background:"rgba(124,58,237,0.07)", color:"#7c3aed", cursor:"pointer", fontSize:10, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center", padding:0, lineHeight:1 }}>▶</button>
           </div>
 
@@ -424,8 +508,12 @@ export default function JsonToolsPage() {
                         <tbody>
                           {rows.map((row, i) => (
                             <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.042)", background:i%2===0?"#ffffff":"rgba(124,58,237,0.016)" }}>
-                              <td style={{ padding:"10px 14px", textAlign:"center", color:"rgba(15,10,30,0.25)", fontWeight:600, fontSize:11 }}>{i+1}</td>
-                              {cols.map(c => <td key={c} style={{ padding:"10px 16px", verticalAlign:"middle" }}><Cell value={row[c]} /></td>)}
+                              <td style={{ padding:"10px 14px", textAlign:"center", color:"rgba(15,10,30,0.25)", fontWeight:600, fontSize:11, verticalAlign:"top" }}>{i+1}</td>
+                              {cols.map(c => (
+                                <td key={c} style={{ padding:"10px 16px", verticalAlign:"top" }}>
+                                  <ExpandableCell value={row[c]} />
+                                </td>
+                              ))}
                             </tr>
                           ))}
                           {rows.length === 0 && (
@@ -434,12 +522,11 @@ export default function JsonToolsPage() {
                         </tbody>
                       </table>
                       <div style={{ padding:"8px 16px", borderTop:"1px solid rgba(124,58,237,0.08)", fontSize:11, color:"rgba(15,10,30,0.35)", fontWeight:600 }}>
-                        {rows.length} of {(parsed as unknown[]).length} rows · {cols.length} columns
+                        {rows.length} of {(parsed as unknown[]).length} rows · {cols.length} columns · click <strong style={{ color:"#7c3aed" }}>+</strong> chips to expand nested values
                       </div>
                     </div>
                   </>
                 ) : parsed !== null ? (
-                  /* tree explorer for objects / non-array-of-objects */
                   <TreeExplorer data={parsed} />
                 ) : (
                   <div style={{ background:"#fafbff", border:"1px dashed rgba(124,58,237,0.18)", borderRadius:16, minHeight:460, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, color:"rgba(15,10,30,0.3)", fontSize:15, fontWeight:600 }}>
@@ -474,12 +561,12 @@ export default function JsonToolsPage() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#7c3aed", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#7c3aed", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(124,58,237,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · JSON Grid Viewer</p>
+        <p>© 2026 iNeedTools · JSON Grid Viewer</p>
       </footer>
     </div>
   );

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -138,12 +138,12 @@ export default function TimestampPage() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#2563eb", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#2563eb", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(37,99,235,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Timestamp Converter</p>
+        <p>© 2026 iNeedTools · Timestamp Converter</p>
       </footer>
     </div>
   );

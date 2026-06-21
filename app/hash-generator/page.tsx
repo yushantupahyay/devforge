@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -15,7 +15,7 @@ async function computeHash(text: string, algo: Algo): Promise<string> {
 }
 
 export default function HashGenerator() {
-  const [input, setInput]   = useState("Hello, DevForge!");
+  const [input, setInput]   = useState("Hello, iNeedTools!");
   const [algo, setAlgo]     = useState<Algo>("SHA-256");
   const [hash, setHash]     = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,12 +111,12 @@ export default function HashGenerator() {
         )}
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#059669", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#059669", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(5,150,105,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Hash Generator</p>
+        <p>© 2026 iNeedTools · Hash Generator</p>
       </footer>
     </div>
   );

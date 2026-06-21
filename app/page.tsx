@@ -6,7 +6,10 @@ const tools = [
   { emoji: "{ }", title: "JSON Tools",        desc: "Format, validate, and view JSON as a sortable data grid with one click.",          tags: ["Grid","Format","Validate"],           accent: "#7c3aed", glow: "rgba(124,58,237,0.2)",  badge: "badge-purple",  href: "/json-tools",     cat: "Data"     },
   { emoji: "📄", title: "Word → PDF",         desc: "Upload a .docx file or type text and download as a print-ready PDF instantly.",   tags: ["Upload .docx","Margins","Download"],  accent: "#0284c7", glow: "rgba(2,132,199,0.2)",   badge: "badge-sky",     href: "/word-to-pdf",    cat: "Document" },
   { emoji: "📑", title: "PDF → Word",         desc: "Upload a PDF and extract all its text — copy it or download as a .txt file.",     tags: ["Extract","Copy","Download"],          accent: "#9333ea", glow: "rgba(147,51,234,0.2)",  badge: "badge-violet",  href: "/pdf-to-word",    cat: "Document" },
-  { emoji: "</>", title: "HTML Compiler",     desc: "Write HTML, CSS and JavaScript with a dark editor and see a live browser preview update as you type.", tags: ["HTML","CSS","JavaScript"],  accent: "#c026d3", glow: "rgba(192,38,211,0.2)",  badge: "badge-fuchsia", href: "/html-compiler",  cat: "Code"     },
+  { emoji: "🖼️", title: "Image Size Adjuster", desc: "Resize any image to an exact target file size in KB or MB. Supports JPEG, WebP and PNG for both reduce and increase.", tags: ["Compress","Resize","Download"], accent: "#7c3aed", glow: "rgba(124,58,237,0.2)", badge: "badge-purple", href: "/image-tools", cat: "File" },
+  { emoji: "📄", title: "PDF Size Adjuster",  desc: "Compress or expand any PDF to an exact KB/MB target. Pages re-render at optimal quality for the chosen size.", tags: ["Compress","Resize","Download"], accent: "#0284c7", glow: "rgba(2,132,199,0.2)",  badge: "badge-sky",    href: "/pdf-tools",   cat: "File" },
+  { emoji: "⬛", title: "QR Code Generator", desc: "Turn any text, URL, Wi-Fi credentials or phone number into a scannable QR code. Customize colour, size and error correction.", tags: ["URL","Wi-Fi","Download"], accent: "#7c3aed", glow: "rgba(124,58,237,0.2)", badge: "badge-purple", href: "/qr-tools", cat: "Generate" },
+  { emoji: "🎂", title: "Age Calculator",   desc: "Enter a date of birth and get exact age, total days/weeks/hours lived, next birthday countdown, zodiac sign, generation, and life milestones.", tags: ["Birthday","Zodiac","Milestones"], accent: "#e11d48", glow: "rgba(225,29,72,0.2)", badge: "badge-rose", href: "/age-calculator", cat: "Calculator" },
   { emoji: ".*",  title: "Regex Tester",      desc: "Test regular expressions with live match highlighting and group extraction.",       tags: ["Match","Replace","Groups"],           accent: "#0891b2", glow: "rgba(8,145,178,0.2)",   badge: "badge-cyan",    href: "/regex-tester",   cat: "Pattern"  },
   { emoji: "64",  title: "Base64",            desc: "Encode and decode Base64 strings and files. Supports URL-safe alphabets.",         tags: ["Encode","Decode","URL-safe"],         accent: "#db2777", glow: "rgba(219,39,119,0.2)",  badge: "badge-pink",    href: "/base64",          cat: "Encoding" },
   { emoji: "ID",  title: "UUID Generator",    desc: "Generate cryptographically secure v4 UUIDs in bulk with one click.",              tags: ["v4","Bulk","Secure"],                 accent: "#d97706", glow: "rgba(217,119,6,0.2)",   badge: "badge-amber",   href: "/uuid-generator", cat: "Generate" },
@@ -17,6 +20,7 @@ const tools = [
   { emoji: "⊞",  title: "CSV Tools",         desc: "View CSV as a table, convert CSV to JSON, or convert a JSON array back to CSV.",  tags: ["Viewer","CSV→JSON","JSON→CSV"],       accent: "#0891b2", glow: "rgba(8,145,178,0.2)",   badge: "badge-cyan",    href: "/csv-tools",      cat: "Data"     },
   { emoji: "Md",  title: "Markdown Preview",  desc: "Write Markdown and see a live rendered preview. Supports code blocks, tables, lists.", tags: ["Preview","Code","Live"],         accent: "#d97706", glow: "rgba(217,119,6,0.2)",   badge: "badge-amber",   href: "/markdown",       cat: "Writing"  },
   { emoji: "🔐",  title: "JWT Decoder",       desc: "Decode and inspect JWT tokens — header, payload, expiry status and key claims.",  tags: ["Header","Payload","Expiry"],          accent: "#ea580c", glow: "rgba(234,88,12,0.2)",   badge: "badge-orange",  href: "/jwt-decoder",    cat: "Security" },
+  { emoji: "🔄",  title: "Image Converter",  desc: "Convert images between JPG, PNG, WebP and BMP. Bulk convert multiple files at once with quality control.", tags: ["JPG","PNG","WebP"],  accent: "#059669", glow: "rgba(5,150,105,0.2)", badge: "badge-emerald", href: "/image-converter", cat: "File" },
 ];
 
 const features = [
@@ -27,7 +31,7 @@ const features = [
 ];
 
 const stats = [
-  { value: "15",   label: "Developer Tools" },
+  { value: "19",   label: "Developer Tools" },
   { value: "0ms",  label: "Server Latency"  },
   { value: "100%", label: "Free Forever"    },
   { value: "0",    label: "Sign-ups Needed" },
@@ -74,23 +78,35 @@ export default function Home() {
             <div className="animate-fade-up mb-6 flex justify-center lg:justify-start">
               <span className="badge badge-purple px-4 py-2" style={{ fontSize:"11px" }}>
                 <span style={{ width:6,height:6,borderRadius:"50%",background:"#7c3aed",boxShadow:"0 0 6px #7c3aed",display:"inline-block" }}/>
-                v1.0 &nbsp;·&nbsp; 15 Tools &nbsp;·&nbsp; 100% Free
+                v1.0 &nbsp;·&nbsp; 19 Tools &nbsp;·&nbsp; 100% Free
               </span>
             </div>
-            <h1 className="animate-fade-up-1 font-black tracking-tighter leading-none mb-6" style={{ fontSize:"clamp(44px,7vw,88px)" }}>
-              <span className="text-gradient">Code</span><br />
-              <span className="text-gradient">Smarter.</span><br />
-              <span style={{ color:"#0f0a1e" }}>Build Faster.</span>
+            <h1 className="animate-fade-up-1 font-black tracking-tighter leading-none mb-4" style={{ fontSize:"clamp(40px,6.5vw,82px)" }}>
+              <span className="text-gradient">Need a Tool?</span><br />
+              <span style={{ color:"#0f0a1e" }}>We Have It.</span>
             </h1>
+            <div className="animate-fade-up-2 flex flex-wrap justify-center lg:justify-start gap-2 mb-6">
+              {[
+                { icon:"⚡", text:"Right Tool, Right Now" },
+                { icon:"🔒", text:"Zero Sign-up Ever"    },
+                { icon:"🌐", text:"Runs in Your Browser" },
+                { icon:"🛠", text:"19 Tools & Growing"   },
+              ].map(t => (
+                <span key={t.text} style={{ fontSize:12, fontWeight:700, padding:"6px 13px", borderRadius:999,
+                  background:"rgba(124,58,237,0.07)", border:"1px solid rgba(124,58,237,0.15)", color:"rgba(15,10,30,0.6)", display:"flex", alignItems:"center", gap:5 }}>
+                  {t.icon} {t.text}
+                </span>
+              ))}
+            </div>
             <p className="animate-fade-up-2 mb-8 leading-relaxed" style={{ color:"rgba(15,10,30,0.52)", fontSize:"17px", maxWidth:"460px", margin:"0 auto 2rem" }}>
-              e — SQL generator, JSON grid viewer, CSV tools, Markdown preview, JWT decoder and more. Zero sign-up, runs entirely in your browser.
+              Every tool a developer needs — SQL generator, JSON viewer, image &amp; PDF utilities, QR codes, age calculator and more. All free, zero setup, no account needed.
             </p>
             <div className="animate-fade-up-3 flex flex-wrap justify-center lg:justify-start gap-4 mb-10">
               <a href="#tools" className="btn btn-primary" style={{ fontSize:"15px", padding:"14px 30px" }}>
-                Explore Tools
+                Find Your Tool
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 17l9.2-9.2M17 17V7H7"/></svg>
               </a>
-              <a href="#features" className="btn btn-ghost" style={{ fontSize:"15px", padding:"14px 30px" }}>Why DevForge?</a>
+              <a href="#features" className="btn btn-ghost" style={{ fontSize:"15px", padding:"14px 30px" }}>Why iNeedTools?</a>
             </div>
             <div className="animate-fade-up-4 flex flex-wrap justify-center lg:justify-start gap-2">
               {["SQL","JSON Grid","Regex","Base64","UUID","SHA-256","HEX/RGB","Unix TS","Text","CSV","Markdown","JWT"].map(t => (
@@ -199,7 +215,7 @@ export default function Home() {
       <section id="features" className="max-w-7xl mx-auto px-6 pb-24 w-full">
         <div className="text-center mb-14">
           <div className="section-line" />
-          <p className="section-label mb-3">Why DevForge</p>
+          <p className="section-label mb-3">Why iNeedTools</p>
           <h2 className="font-black tracking-tight" style={{ fontSize:"clamp(26px,4vw,44px)", color:"#0f0a1e" }}>
             Built for <span className="text-gradient-cyan">developers</span>, by developers
           </h2>
@@ -227,7 +243,7 @@ export default function Home() {
             <p className="section-label mb-3" style={{ color:"rgba(255,255,255,0.7)" }}>Roadmap</p>
             <h2 className="font-black tracking-tight mb-4" style={{ fontSize:"clamp(24px,3.5vw,40px)", color:"#ffffff" }}>More tools shipping soon</h2>
             <p className="mb-8 max-w-md mx-auto" style={{ color:"rgba(255,255,255,0.65)", fontSize:15 }}>
-              New tools ship every sprint. Bookmark DevForge — the toolkit grows every week.
+              New tools ship every sprint. Bookmark iNeedTools — the toolkit grows every week.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <a href="#tools" className="btn" style={{ background:"#ffffff", color:"#7c3aed", border:"none", fontSize:14, boxShadow:"0 4px 20px rgba(0,0,0,0.15)" }}>Use Tools Now</a>
@@ -244,10 +260,10 @@ export default function Home() {
       <footer className="mt-auto py-10 text-center" style={{ borderTop:"1px solid rgba(124,58,237,0.1)", fontSize:13 }}>
         <div className="flex items-center justify-center gap-2 mb-3">
           <span className="nav-logo-icon" style={{ width:22,height:22,fontSize:8 }}>&lt;/&gt;</span>
-          <span className="font-bold text-gradient-purple" style={{ fontSize:14 }}>DevForge</span>
+          <span className="font-bold text-gradient-purple" style={{ fontSize:14 }}>iNeedTools</span>
         </div>
         <p style={{ color:"rgba(15,10,30,0.38)" }}>Built for developers, by developers. All tools run 100% in your browser.</p>
-        <p className="mt-1" style={{ color:"rgba(15,10,30,0.22)", fontSize:12 }}>© 2026 DevForge &nbsp;·&nbsp; No cookies &nbsp;·&nbsp; No tracking &nbsp;·&nbsp; Open source</p>
+        <p className="mt-1" style={{ color:"rgba(15,10,30,0.22)", fontSize:12 }}>© 2026 iNeedTools &nbsp;·&nbsp; No cookies &nbsp;·&nbsp; No tracking &nbsp;·&nbsp; Open source</p>
       </footer>
     </div>
   );

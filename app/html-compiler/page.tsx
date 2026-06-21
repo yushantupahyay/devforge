@@ -1,11 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 
 const DEFAULT_HTML = `<div class="card">
-  <h1>Hello, DevForge! 👋</h1>
+  <h1>Hello, iNeedTools! 👋</h1>
   <p>Edit the <strong>HTML</strong>, <strong>CSS</strong> and <strong>JS</strong> tabs on the left and see the live preview update instantly.</p>
   <button onclick="greet()">Click Me</button>
   <p id="output"></p>
@@ -74,7 +74,7 @@ button:hover {
 const DEFAULT_JS = `function greet() {
   const el = document.getElementById('output');
   const msgs = [
-    'Hello from DevForge! 🚀',
+    'Hello from iNeedTools! 🚀',
     'JavaScript is running! ✅',
     'Build something amazing! 💡',
     'Code. Test. Ship. 🎯',
@@ -164,7 +164,7 @@ ${html}
               Write code on the left, see a live browser preview on the right. Drag the handle to resize panels.
             </p>
           </div>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#c026d3", textDecoration:"none", whiteSpace:"nowrap" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#c026d3", textDecoration:"none", whiteSpace:"nowrap" }}>← Back to iNeedTools</Link>
         </div>
       </section>
 
@@ -265,7 +265,7 @@ ${html}
       </div>
 
       <footer className="mt-auto py-6 text-center" style={{ borderTop:"1px solid rgba(192,38,211,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · HTML / CSS / JS Compiler</p>
+        <p>© 2026 iNeedTools · HTML / CSS / JS Compiler</p>
       </footer>
     </div>
   );

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -6,7 +6,7 @@ import Navbar from "../components/Navbar";
 
 export default function Base64Page() {
   const [mode, setMode]       = useState<"encode"|"decode">("encode");
-  const [input, setInput]     = useState("Hello, DevForge! 🚀");
+  const [input, setInput]     = useState("Hello, iNeedTools! 🚀");
   const [urlSafe, setUrlSafe] = useState(false);
   const [copied, setCopied]   = useState(false);
 
@@ -100,12 +100,12 @@ export default function Base64Page() {
         </div>
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#db2777", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#db2777", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(219,39,119,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Base64 Encoder</p>
+        <p>© 2026 iNeedTools · Base64 Encoder</p>
       </footer>
     </div>
   );

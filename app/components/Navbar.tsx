@@ -13,7 +13,7 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <span className="nav-logo-icon">&lt;/&gt;</span>
           <span className="text-gradient-purple font-bold text-sm tracking-tight">
-            DevForge
+            iNeedTools
           </span>
         </Link>
 

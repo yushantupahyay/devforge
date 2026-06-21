@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef } from "react";
 import Link from "next/link";
@@ -257,14 +257,14 @@ export default function WordToPdf() {
         )}
 
         <div style={{ marginTop:40 }}>
-          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#0284c7", textDecoration:"none" }}>← Back to DevForge</Link>
+          <Link href="/" style={{ display:"inline-flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#0284c7", textDecoration:"none" }}>← Back to iNeedTools</Link>
         </div>
       </div>
 
       <style>{`@keyframes spin { to { transform:rotate(360deg); } }`}</style>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(2,132,199,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 DevForge · Word → PDF</p>
+        <p>© 2026 iNeedTools · Word → PDF</p>
       </footer>
     </div>
   );
