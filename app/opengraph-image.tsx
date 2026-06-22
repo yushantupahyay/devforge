@@ -64,13 +64,7 @@ export default function OGImage() {
 
           {/* headline */}
           <div style={{ display: "flex", flexDirection: "column", marginBottom: 36 }}>
-            <span style={{
-              fontSize: 82, fontWeight: 900, lineHeight: 1,
-              background: "linear-gradient(135deg, #a78bfa, #e879f9, #67e8f9)",
-              backgroundClip: "text",
-              color: "transparent",
-              letterSpacing: -3,
-            }}>
+            <span style={{ fontSize: 82, fontWeight: 900, lineHeight: 1, color: "#a78bfa", letterSpacing: -3 }}>
               Need a Tool?
             </span>
             <span style={{ fontSize: 82, fontWeight: 900, lineHeight: 1, color: "white", letterSpacing: -3 }}>
