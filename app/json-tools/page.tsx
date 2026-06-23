@@ -386,7 +386,7 @@ export default function JsonToolsPage() {
         <p className="section-label mb-2">Data Tool</p>
         <div className="section-line" style={{ margin:"0 0 12px" }} />
         <h1 className="font-black tracking-tight mb-2" style={{ fontSize:"clamp(26px,3.5vw,48px)", color:"#0f0a1e" }}>
-          JSON <span className="text-gradient-purple">Grid</span> Viewer
+          JSON <span className="text-gradient-purple">Reader</span>
         </h1>
         <p style={{ color:"rgba(15,10,30,0.5)", fontSize:15, maxWidth:620 }}>
           Paste any JSON — flat arrays, single objects, or deeply nested structures — and get an interactive grid or tree explorer instantly.
@@ -566,7 +566,7 @@ export default function JsonToolsPage() {
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(124,58,237,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 iNeedTools · JSON Grid Viewer</p>
+        <p>© 2026 iNeedTools · JSON Reader</p>
       </footer>
     </div>
   );

@@ -6,7 +6,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const tools = [
-  "SQL Generator", "JSON Tools", "Image Converter", "QR Code",
+  "SQL Generator", "JSON Reader", "Image Converter", "QR Code",
   "Base64", "UUID Generator", "Hash Generator", "Regex Tester",
   "Age Calculator", "Color Tools", "CSV Tools", "JWT Decoder",
 ];
