@@ -3,6 +3,7 @@ import Navbar from "./components/Navbar";
 
 const tools = [
   { emoji: "SQL", title: "SQL Generator",    desc: "Generate CREATE TABLE and dynamic CRUD stored procedures from column definitions.", tags: ["CREATE TABLE","Stored Proc","CRUD"],  accent: "#2563eb", glow: "rgba(37,99,235,0.2)",   badge: "badge-blue",    href: "/sql-generator",  cat: "Database" },
+  { emoji: "⇄",  title: "SQL → Model",      desc: "Convert any CREATE TABLE SQL (SQL Server, MySQL, PostgreSQL, Oracle, SQLite) to a typed model in C#, Python, Java, TypeScript, Go, Kotlin, Swift, C++ or Rust.", tags: ["C#","Python","Java","TypeScript","Go"], accent: "#2563eb", glow: "rgba(37,99,235,0.2)", badge: "badge-blue", href: "/sql-to-model", cat: "Database" },
   { emoji: "{ }", title: "JSON Reader",        desc: "Format, validate, and read JSON easily. View as a sortable table, copy values, and explore nested objects.", tags: ["Format","Validate","Read"],           accent: "#7c3aed", glow: "rgba(124,58,237,0.2)",  badge: "badge-purple",  href: "/json-tools",     cat: "Data"     },
   { emoji: "📄", title: "Word → PDF",         desc: "Upload a .docx file or type text and download as a print-ready PDF instantly.",   tags: ["Upload .docx","Margins","Download"],  accent: "#0284c7", glow: "rgba(2,132,199,0.2)",   badge: "badge-sky",     href: "/word-to-pdf",    cat: "Document" },
   { emoji: "📑", title: "PDF → Word",         desc: "Upload a PDF and extract all its text — copy it or download as a .txt file.",     tags: ["Extract","Copy","Download"],          accent: "#9333ea", glow: "rgba(147,51,234,0.2)",  badge: "badge-violet",  href: "/pdf-to-word",    cat: "Document" },
@@ -31,7 +32,7 @@ const features = [
 ];
 
 const stats = [
-  { value: "19",   label: "Developer Tools" },
+  { value: "20",   label: "Developer Tools" },
   { value: "0ms",  label: "Server Latency"  },
   { value: "100%", label: "Free Forever"    },
   { value: "0",    label: "Sign-ups Needed" },
@@ -78,7 +79,7 @@ export default function Home() {
             <div className="animate-fade-up mb-6 flex justify-center lg:justify-start">
               <span className="badge badge-purple px-4 py-2" style={{ fontSize:"11px" }}>
                 <span style={{ width:6,height:6,borderRadius:"50%",background:"#7c3aed",boxShadow:"0 0 6px #7c3aed",display:"inline-block" }}/>
-                v1.0 &nbsp;·&nbsp; 19 Tools &nbsp;·&nbsp; 100% Free
+                v1.0 &nbsp;·&nbsp; 20 Tools &nbsp;·&nbsp; 100% Free
               </span>
             </div>
             <h1 className="animate-fade-up-1 font-black tracking-tighter leading-none mb-4" style={{ fontSize:"clamp(40px,6.5vw,82px)" }}>
@@ -90,7 +91,7 @@ export default function Home() {
                 { icon:"⚡", text:"Right Tool, Right Now" },
                 { icon:"🔒", text:"Zero Sign-up Ever"    },
                 { icon:"🌐", text:"Runs in Your Browser" },
-                { icon:"🛠", text:"19 Tools & Growing"   },
+                { icon:"🛠", text:"20 Tools & Growing"   },
               ].map(t => (
                 <span key={t.text} style={{ fontSize:12, fontWeight:700, padding:"6px 13px", borderRadius:999,
                   background:"rgba(124,58,237,0.07)", border:"1px solid rgba(124,58,237,0.15)", color:"rgba(15,10,30,0.6)", display:"flex", alignItems:"center", gap:5 }}>
