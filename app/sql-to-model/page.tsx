@@ -163,7 +163,7 @@ function parseColumn(def: string): Column | null {
   const rest = trimmed.slice(nameMatch[0].length).trim();
 
   // Data type — may contain spaces (e.g. "DOUBLE PRECISION", "CHARACTER VARYING")
-  const typeMatch = rest.match(/^([\w ]+?)(?:\s*\(([^)]*)\))?(?:\s|$)/);
+  const typeMatch = rest.match(/^[\["`]?([\w ]+?)[\]"`]?(?:\s*\(([^)]*)\))?(?:\s|$)/);
   if (!typeMatch) return null;
   const rawType = typeMatch[1].trim().toUpperCase();
   const params  = typeMatch[2] ? typeMatch[2].split(",").map(p => p.trim()) : [];
@@ -211,8 +211,8 @@ function parseSQL(sql: string): ParsedTable {
 
   for (const part of parts) {
     const t = part.trim().toUpperCase();
-    const pkm = part.match(/PRIMARY\s+KEY\s*\(([^)]+)\)/i);
-    if (pkm) { pkm[1].split(",").forEach(k => primaryKeys.push(k.trim().replace(/[\[\]"`]/g, ""))); }
+    const pkm = part.match(/PRIMARY\s+KEY\s+(?:CLUSTERED\s+|NONCLUSTERED\s+)?\(([^)]+)\)/i);
+    if (pkm) { pkm[1].split(",").forEach(k => primaryKeys.push(k.trim().replace(/[\[\]"`]/g, "").replace(/\s+(ASC|DESC)$/i, "").trim())); }
     if (/^(CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|CHECK\s*\()/i.test(t)) continue;
     const col = parseColumn(part);
     if (col) columns.push(col);
