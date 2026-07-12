@@ -27,6 +27,11 @@ const TARGET_LANGS = [
   { value: "rust",       label: "Rust",            ext: "rs"    },
 ];
 
+/* ── Naming mode ─────────────────────────────────────────────── */
+// "exact"      → keep identifiers exactly as they appear in the SQL (no case changes)
+// "convention" → re-case identifiers to each language's usual style (PascalCase, camelCase, snake_case…)
+type NamingMode = "exact" | "convention";
+
 /* ── Type Mapping: sqlType → per-language type ───────────────── */
 
 type TypeMap = Record<string, string> & { default: string };
@@ -125,6 +130,16 @@ function toCamelCase(s: string) {
 function toSnakeCase(s: string) {
   return s.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "").replace(/__+/g, "_");
 }
+// Re-cases `raw` according to `style`, unless `mode` is "exact" — in which case
+// the original SQL spelling/casing is kept verbatim (only ever used for name
+// resolution, never for anything that must be syntactically valid, since the
+// parser already strips out spaces / brackets / quotes).
+function convName(raw: string, style: "pascal" | "camel" | "snake", mode: NamingMode): string {
+  if (mode === "exact") return raw;
+  if (style === "pascal") return toPascalCase(raw);
+  if (style === "camel")  return toCamelCase(raw);
+  return toSnakeCase(raw);
+}
 
 /* ── SQL Parser ──────────────────────────────────────────────── */
 interface Column {
@@ -132,7 +147,7 @@ interface Column {
   isPrimaryKey: boolean; isAutoIncrement: boolean;
   maxLength?: number; precision?: number; scale?: number;
 }
-interface ParsedTable { tableName: string; columns: Column[] }
+interface ParsedTable { tableName: string; rawTableName: string; columns: Column[] }
 
 function splitTopLevel(str: string, delim: string): string[] {
   const parts: string[] = []; let depth = 0, cur = "", inStr = false, sc = "";
@@ -156,11 +171,22 @@ function parseColumn(def: string): Column | null {
   const up = trimmed.toUpperCase();
   if (!trimmed || /^(CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY\s|CHECK\s*\()/i.test(trimmed)) return null;
 
-  // Column name (possibly quoted with [], "", ``)
-  const nameMatch = trimmed.match(/^[\["`]?(\w[\w\s]*)[\]"`]?\s+/);
-  if (!nameMatch) return null;
-  const name = nameMatch[1].trim().replace(/\s+/g, "_");
-  const rest = trimmed.slice(nameMatch[0].length).trim();
+  // Column name (possibly quoted with [], "", ``) — casing is preserved exactly as written.
+  // Only a *quoted* identifier is allowed to contain spaces; an unquoted name must stop at
+  // the first whitespace, otherwise a paren-less type (INT, DATE, TEXT…) followed by
+  // modifiers like "PRIMARY KEY" or "NOT NULL" gets greedily swallowed into the name.
+  let name: string;
+  let rest: string;
+  const quotedMatch = trimmed.match(/^([\["`])([^\]"`]+)[\]"`]\s+/);
+  if (quotedMatch) {
+    name = quotedMatch[2].trim().replace(/\s+/g, "_");
+    rest = trimmed.slice(quotedMatch[0].length).trim();
+  } else {
+    const plainMatch = trimmed.match(/^(\w+)\s+/);
+    if (!plainMatch) return null;
+    name = plainMatch[1];
+    rest = trimmed.slice(plainMatch[0].length).trim();
+  }
 
   // Data type — may contain spaces (e.g. "DOUBLE PRECISION", "CHARACTER VARYING")
   const typeMatch = rest.match(/^[\["`]?([\w ]+?)[\]"`]?(?:\s*\(([^)]*)\))?(?:\s|$)/);
@@ -195,7 +221,8 @@ function parseSQL(sql: string): ParsedTable {
   if (!cm) throw new Error("Could not find a CREATE TABLE statement.");
 
   const rawName = cm[1].trim().replace(/[\[\]"`]/g, "");
-  const tableName = toPascalCase(rawName.includes(".") ? rawName.split(".").pop()! : rawName);
+  const cleanRawName = (rawName.includes(".") ? rawName.split(".").pop()! : rawName).trim().replace(/\s+/g, "_");
+  const tableName = toPascalCase(cleanRawName);
 
   const startIdx = s.indexOf("(", cm.index!) + 1;
   let depth = 1, endIdx = startIdx;
@@ -222,7 +249,7 @@ function parseSQL(sql: string): ParsedTable {
     if (col) col.isPrimaryKey = true;
   });
   if (!columns.length) throw new Error("No columns found. Make sure you pasted a complete CREATE TABLE statement.");
-  return { tableName, columns };
+  return { tableName, rawTableName: cleanRawName, columns };
 }
 
 /* ── Type resolver ───────────────────────────────────────────── */
@@ -258,7 +285,8 @@ function nullable(base: string, col: Column, lang: string): string {
 
 /* ── Code Generators ─────────────────────────────────────────── */
 
-function genCSharp({ tableName, columns }: ParsedTable): string {
+function genCSharp({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const needsSchema = columns.some(c => c.isAutoIncrement);
   const needsXDoc   = columns.some(c => getBaseType(c, "csharp") === "XDocument");
   const lines = [
@@ -266,13 +294,13 @@ function genCSharp({ tableName, columns }: ParsedTable): string {
     ...(needsSchema ? ["using System.ComponentModel.DataAnnotations;", "using System.ComponentModel.DataAnnotations.Schema;"] : []),
     ...(needsXDoc   ? ["using System.Xml.Linq;"] : []),
     "",
-    `public class ${tableName}`,
+    `public class ${cls}`,
     "{",
   ];
   for (const col of columns) {
     const base     = getBaseType(col, "csharp");
     const type     = nullable(base, col, "csharp");
-    const propName = toPascalCase(col.name);
+    const propName = convName(col.name, "pascal", mode);
     if (col.isAutoIncrement) lines.push("    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]");
     lines.push(`    public ${type} ${propName} { get; set; }`);
     lines.push("");
@@ -282,7 +310,8 @@ function genCSharp({ tableName, columns }: ParsedTable): string {
   return lines.join("\n");
 }
 
-function genPython({ tableName, columns }: ParsedTable): string {
+function genPython({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const imports = new Set<string>(["from dataclasses import dataclass, field", "from typing import Optional"]);
   for (const col of columns) {
     const t = getBaseType(col, "python");
@@ -290,18 +319,19 @@ function genPython({ tableName, columns }: ParsedTable): string {
     if (t === "Decimal") imports.add("from decimal import Decimal");
     if (t === "UUID")    imports.add("from uuid import UUID");
   }
-  const lines = [...imports, "", "", `@dataclass`, `class ${tableName}:`];
+  const lines = [...imports, "", "", `@dataclass`, `class ${cls}:`];
   for (const col of columns) {
     const base = getBaseType(col, "python");
     const type = nullable(base, col, "python");
-    const fieldName = toSnakeCase(col.name);
+    const fieldName = convName(col.name, "snake", mode);
     const defVal = col.isNullable && !col.isPrimaryKey ? " = None" : "";
     lines.push(`    ${fieldName}: ${type}${defVal}`);
   }
   return lines.join("\n");
 }
 
-function genJava({ tableName, columns }: ParsedTable): string {
+function genJava({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const imports = new Set<string>(["import jakarta.persistence.*;", "import java.io.Serializable;"]);
   for (const col of columns) {
     const t = getBaseType(col, "java");
@@ -314,13 +344,13 @@ function genJava({ tableName, columns }: ParsedTable): string {
   const lines = [
     ...imports, "",
     "@Entity",
-    `@Table(name = "${tableName}")`,
-    `public class ${tableName} implements Serializable {`, ""
+    `@Table(name = "${cls}")`,
+    `public class ${cls} implements Serializable {`, ""
   ];
   for (const col of columns) {
     const base = getBaseType(col, "java");
     const type = nullable(base, col, "java");
-    const fieldName = toCamelCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
     if (col.isPrimaryKey) {
       lines.push("    @Id");
       if (col.isAutoIncrement) lines.push("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
@@ -333,8 +363,8 @@ function genJava({ tableName, columns }: ParsedTable): string {
   for (const col of columns) {
     const base = getBaseType(col, "java");
     const type = nullable(base, col, "java");
-    const fieldName = toCamelCase(col.name);
-    const pascal   = toPascalCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
+    const pascal   = convName(col.name, "pascal", mode);
     lines.push(`    public ${type} get${pascal}() { return ${fieldName}; }`);
     lines.push(`    public void set${pascal}(${type} ${fieldName}) { this.${fieldName} = ${fieldName}; }`);
     lines.push("");
@@ -344,58 +374,68 @@ function genJava({ tableName, columns }: ParsedTable): string {
   return lines.join("\n");
 }
 
-function genTypeScript({ tableName, columns }: ParsedTable): string {
-  const lines = [`export interface ${tableName} {`];
+function genTypeScript({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
+  const lines = [`export interface ${cls} {`];
   for (const col of columns) {
     const base = getBaseType(col, "typescript");
     const type = col.isNullable && !col.isPrimaryKey ? `${base} | null` : base;
-    const fieldName = toCamelCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
     lines.push(`    ${fieldName}${col.isNullable && !col.isPrimaryKey ? "?" : ""}: ${type};`);
   }
   lines.push("}");
-  lines.push("", `export type Create${tableName} = Omit<${tableName}, '${toCamelCase(columns.find(c => c.isPrimaryKey || c.isAutoIncrement)?.name || "id")}' >;`);
-  lines.push(`export type Update${tableName} = Partial<${tableName}> & Pick<${tableName}, '${toCamelCase(columns.find(c => c.isPrimaryKey || c.isAutoIncrement)?.name || "id")}' >;`);
+  const keyField = convName(columns.find(c => c.isPrimaryKey || c.isAutoIncrement)?.name || "id", "camel", mode);
+  lines.push("", `export type Create${cls} = Omit<${cls}, '${keyField}' >;`);
+  lines.push(`export type Update${cls} = Partial<${cls}> & Pick<${cls}, '${keyField}' >;`);
   return lines.join("\n");
 }
 
-function genJavaScript({ tableName, columns }: ParsedTable): string {
+function genJavaScript({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const fields = columns.map(col => {
-    const fieldName = toCamelCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
     const defVal    = col.isNullable ? "null" : col.sqlType.includes("INT") || col.sqlType.includes("FLOAT") || col.sqlType.includes("DECIMAL") || col.sqlType.includes("NUMBER") ? "0" : col.sqlType.includes("BIT") || col.sqlType.includes("BOOL") ? "false" : col.sqlType.includes("DATE") || col.sqlType.includes("TIME") ? "new Date()" : '""';
     return `        /** @type {${getBaseType(col, "typescript")}} */\n        this.${fieldName} = ${defVal};`;
   });
   return [
-    `class ${tableName} {`,
+    `class ${cls} {`,
     `    constructor() {`,
     ...fields,
     `    }`,
     `}`,
     "",
-    `module.exports = ${tableName};`,
+    `module.exports = ${cls};`,
   ].join("\n");
 }
 
-function genGo({ tableName, columns }: ParsedTable): string {
+function genGo({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const needsTime = columns.some(c => getBaseType(c, "go") === "time.Time" || getBaseType(c, "go") === "time.Duration");
   const lines = [
     "package models",
     "",
     ...(needsTime ? ["import \"time\"", ""] : []),
-    `type ${tableName} struct {`,
+    `type ${cls} struct {`,
   ];
   for (const col of columns) {
     const base = getBaseType(col, "go");
     const type = nullable(base, col, "go");
-    const fieldName = toPascalCase(col.name);
-    const dbTag  = toSnakeCase(col.name);
-    const jsonTag = toCamelCase(col.name);
+    // Go requires an uppercase first letter to export a struct field (needed
+    // for encoding/json etc.), so in "exact" mode we only capitalize the
+    // first letter and otherwise leave the rest of the name untouched.
+    const fieldName = mode === "exact"
+      ? (col.name.charAt(0).toUpperCase() + col.name.slice(1))
+      : toPascalCase(col.name);
+    const dbTag   = col.name; // always the real column name
+    const jsonTag = convName(col.name, "camel", mode);
     lines.push(`    ${fieldName.padEnd(20)} ${type.padEnd(16)} \`db:"${dbTag}" json:"${jsonTag}"\``);
   }
   lines.push("}");
   return lines.join("\n");
 }
 
-function genKotlin({ tableName, columns }: ParsedTable): string {
+function genKotlin({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const imports = new Set<string>();
   for (const col of columns) {
     const t = getBaseType(col, "kotlin");
@@ -405,12 +445,12 @@ function genKotlin({ tableName, columns }: ParsedTable): string {
   }
   const lines = [
     ...(imports.size ? [...imports, ""] : []),
-    `data class ${tableName}(`,
+    `data class ${cls}(`,
   ];
   columns.forEach((col, i) => {
     const base = getBaseType(col, "kotlin");
     const type = nullable(base, col, "kotlin");
-    const fieldName = toCamelCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
     const comma = i < columns.length - 1 ? "," : "";
     const defVal = col.isNullable && !col.isPrimaryKey ? " = null" : "";
     lines.push(`    val ${fieldName}: ${type}${defVal}${comma}`);
@@ -419,20 +459,20 @@ function genKotlin({ tableName, columns }: ParsedTable): string {
   return lines.join("\n");
 }
 
-function genSwift({ tableName, columns }: ParsedTable): string {
+function genSwift({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const needsFoundation = columns.some(c => ["Date","UUID","Data","Decimal"].includes(getBaseType(c, "swift")));
   const lines = [
     ...(needsFoundation ? ["import Foundation", ""] : []),
-    `struct ${tableName}: Codable {`,
+    `struct ${cls}: Codable {`,
   ];
   const codingKeys: string[] = [];
   for (const col of columns) {
     const base = getBaseType(col, "swift");
     const type = nullable(base, col, "swift");
-    const fieldName = toCamelCase(col.name);
-    const snakeName = toSnakeCase(col.name);
+    const fieldName = convName(col.name, "camel", mode);
     lines.push(`    let ${fieldName}: ${type}`);
-    if (fieldName !== snakeName) codingKeys.push(`        case ${fieldName} = "${snakeName}"`);
+    if (fieldName !== col.name) codingKeys.push(`        case ${fieldName} = "${col.name}"`);
   }
   if (codingKeys.length) {
     lines.push("", "    enum CodingKeys: String, CodingKey {");
@@ -443,7 +483,8 @@ function genSwift({ tableName, columns }: ParsedTable): string {
   return lines.join("\n");
 }
 
-function genCpp({ tableName, columns }: ParsedTable): string {
+function genCpp({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const needsOptional = columns.some(c => c.isNullable && !c.isPrimaryKey);
   const needsVector   = columns.some(c => getBaseType(c, "cpp").includes("vector"));
   const lines = [
@@ -453,12 +494,12 @@ function genCpp({ tableName, columns }: ParsedTable): string {
     ...(needsOptional ? ["#include <optional>"] : []),
     ...(needsVector   ? ["#include <vector>"] : []),
     "",
-    `struct ${tableName} {`,
+    `struct ${cls} {`,
   ];
   for (const col of columns) {
     const base = getBaseType(col, "cpp");
     const type = nullable(base, col, "cpp");
-    const fieldName = toSnakeCase(col.name);
+    const fieldName = convName(col.name, "snake", mode);
     const defVal = col.isNullable && !col.isPrimaryKey ? "" : base === "bool" ? "{ false }" : base.includes("string") ? "" : base.includes("vector") ? "" : "{}";
     lines.push(`    ${type.padEnd(30)} ${fieldName}${defVal};`);
   }
@@ -466,7 +507,8 @@ function genCpp({ tableName, columns }: ParsedTable): string {
   return lines.join("\n");
 }
 
-function genRust({ tableName, columns }: ParsedTable): string {
+function genRust({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
+  const cls = mode === "exact" ? rawTableName : tableName;
   const needsChrono = columns.some(c => ["NaiveDateTime","NaiveDate","NaiveTime","DateTime<Utc>"].includes(getBaseType(c, "rust")));
   const needsUuid   = columns.some(c => getBaseType(c, "rust") === "Uuid");
   const needsSerde  = columns.some(c => getBaseType(c, "rust") === "serde_json::Value");
@@ -477,33 +519,38 @@ function genRust({ tableName, columns }: ParsedTable): string {
     "use serde::{Deserialize, Serialize};",
     "",
     "#[derive(Debug, Clone, Serialize, Deserialize)]",
-    "#[serde(rename_all = \"snake_case\")]",
-    `pub struct ${tableName} {`,
+    ...(mode === "convention" ? ["#[serde(rename_all = \"snake_case\")]"] : []),
+    `pub struct ${cls} {`,
   ];
   for (const col of columns) {
     const base = getBaseType(col, "rust");
     const type = nullable(base, col, "rust");
-    const fieldName = toSnakeCase(col.name);
-    const pascal    = toPascalCase(col.name);
-    if (fieldName !== toSnakeCase(pascal)) lines.push(`    #[serde(rename = "${toSnakeCase(col.name)}")]`);
+    const fieldName = convName(col.name, "snake", mode);
+    if (mode === "convention") {
+      const pascal = toPascalCase(col.name);
+      if (fieldName !== toSnakeCase(pascal)) lines.push(`    #[serde(rename = "${col.name}")]`);
+    } else if (fieldName !== col.name) {
+      // "exact" identifiers should already match, but guard just in case
+      lines.push(`    #[serde(rename = "${col.name}")]`);
+    }
     lines.push(`    pub ${fieldName}: ${type},`);
   }
   lines.push("}");
   return lines.join("\n");
 }
 
-function generateCode(table: ParsedTable, lang: string): string {
+function generateCode(table: ParsedTable, lang: string, mode: NamingMode): string {
   switch (lang) {
-    case "csharp":     return genCSharp(table);
-    case "python":     return genPython(table);
-    case "java":       return genJava(table);
-    case "typescript": return genTypeScript(table);
-    case "javascript": return genJavaScript(table);
-    case "go":         return genGo(table);
-    case "kotlin":     return genKotlin(table);
-    case "swift":      return genSwift(table);
-    case "cpp":        return genCpp(table);
-    case "rust":       return genRust(table);
+    case "csharp":     return genCSharp(table, mode);
+    case "python":     return genPython(table, mode);
+    case "java":       return genJava(table, mode);
+    case "typescript": return genTypeScript(table, mode);
+    case "javascript": return genJavaScript(table, mode);
+    case "go":         return genGo(table, mode);
+    case "kotlin":     return genKotlin(table, mode);
+    case "swift":      return genSwift(table, mode);
+    case "cpp":        return genCpp(table, mode);
+    case "rust":       return genRust(table, mode);
     default:           return "// Unsupported language";
   }
 }
@@ -587,6 +634,7 @@ const SAMPLES: Record<string, string> = {
 export default function SqlToModel() {
   const [dialect, setDialect] = useState("sqlserver");
   const [lang,    setLang]    = useState("csharp");
+  const [mode,    setMode]    = useState<NamingMode>("exact");
   const [sql,     setSql]     = useState("");
   const [output,  setOutput]  = useState("");
   const [error,   setError]   = useState("");
@@ -598,7 +646,7 @@ export default function SqlToModel() {
     setError(""); setOutput("");
     try {
       const table = parseSQL(sql);
-      setOutput(generateCode(table, lang));
+      setOutput(generateCode(table, lang, mode));
     } catch (e) {
       setError(String(e).replace("Error: ", ""));
     }
@@ -660,6 +708,18 @@ export default function SqlToModel() {
               style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid rgba(37,99,235,0.3)", fontSize:13, fontWeight:600, color:"#0f0a1e", background:"#fff", cursor:"pointer", outline:"none" }}
             >
               {TARGET_LANGS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Naming</label>
+            <select
+              value={mode} onChange={e => setMode(e.target.value as NamingMode)}
+              style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid rgba(37,99,235,0.3)", fontSize:13, fontWeight:600, color:"#0f0a1e", background:"#fff", cursor:"pointer", outline:"none" }}
+              title="Exact: keep table/column names exactly as written in the SQL. Convention: re-case names to each language's usual style."
+            >
+              <option value="exact">Match SQL exactly</option>
+              <option value="convention">Language convention</option>
             </select>
           </div>
 
