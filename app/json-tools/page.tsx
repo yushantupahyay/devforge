@@ -59,6 +59,14 @@ const isArrOfObj = (v: unknown): v is Record<string,unknown>[] =>
   Array.isArray(v) && v.length > 0 &&
   typeof v[0] === "object" && v[0] !== null && !Array.isArray(v[0]);
 
+/* coerce an edited string back to the original value's type */
+function coerceValue(raw: string, original: unknown): unknown {
+  if (typeof original === "number") { const n = Number(raw); return raw.trim() !== "" && !isNaN(n) ? n : original; }
+  if (typeof original === "boolean") return raw === "true";
+  if (original === null || original === undefined) return raw === "" ? original : raw;
+  return raw;
+}
+
 /* ── Cell: renders a single primitive value ─────────── */
 function Cell({ value }: { value: unknown }) {
   if (value === null || value === undefined)
@@ -71,7 +79,7 @@ function Cell({ value }: { value: unknown }) {
 }
 
 /* ── sub-table for array-of-objects ─────────────────── */
-function ArrOfObjTable({ arr, noMargin }: { arr: Record<string,unknown>[]; noMargin?: boolean }) {
+function ArrOfObjTable({ arr, noMargin, onEdit }: { arr: Record<string,unknown>[]; noMargin?: boolean; onEdit?: (rowIdx: number, col: string, value: unknown) => void }) {
   const cols = Array.from(new Set(arr.flatMap(r => Object.keys(r))));
   const th: React.CSSProperties = { padding:"7px 14px", textAlign:"left", fontWeight:700, fontSize:10, letterSpacing:"0.07em", textTransform:"uppercase", color:"rgba(15,10,30,0.45)", borderBottom:"1px solid rgba(124,58,237,0.12)", whiteSpace:"nowrap" };
   return (
@@ -87,17 +95,30 @@ function ArrOfObjTable({ arr, noMargin }: { arr: Record<string,unknown>[]; noMar
           {arr.map((row, i) => (
             <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.04)", background: i%2===0?"#fff":"rgba(124,58,237,0.03)" }}>
               <td style={{ padding:"7px 14px", color:"rgba(15,10,30,0.3)", fontWeight:700 }}>{i+1}</td>
-              {cols.map(c => <td key={c} style={{ padding:"7px 14px" }}><ExpandableCell value={row[c]} /></td>)}
+              {cols.map(c => (
+                <td key={c} style={{ padding:"7px 14px" }}>
+                  {onEdit ? (
+                    <EditableCell value={row[c]} onCommit={v => onEdit(i, c, v)} />
+                  ) : (
+                    <ExpandableCell value={row[c]} />
+                  )}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>
       </table>
+      {onEdit && (
+        <div style={{ padding:"6px 14px", borderTop:"1px solid rgba(124,58,237,0.08)", fontSize:10.5, color:"rgba(15,10,30,0.35)", fontWeight:600 }}>
+          double-click a cell to edit · click <strong style={{ color:"#7c3aed" }}>+</strong> chips to expand nested values
+        </div>
+      )}
     </div>
   );
 }
 
-/* ── ExpandableCell: cell that can expand nested data ─ */
-function ExpandableCell({ value }: { value: unknown }) {
+/* ── ExpandableCell: cell that can expand nested data — edits bubble up via onChange ── */
+function ExpandableCell({ value, onChange }: { value: unknown; onChange?: (v: unknown) => void }) {
   const [expanded, setExpanded] = useState(false);
 
   /* primitives — plain render */
@@ -111,9 +132,9 @@ function ExpandableCell({ value }: { value: unknown }) {
   if (!valIsArr && Object.keys(value as object).length === 0)
     return <span style={{ color:"#94a3b8", fontSize:12 }}>{"{}"}</span>;
 
-  /* plain array of primitives — no expand needed */
+  /* plain array of primitives — editable inline as a comma-separated list, no expand needed */
   if (valIsArr && (value as unknown[]).every(v => typeof v !== "object" || v === null))
-    return <span style={{ color:"#0891b2", fontSize:12 }}>{(value as unknown[]).map(v => String(v ?? "null")).join(", ")}</span>;
+    return <EditablePrimitiveArrayCell value={value as unknown[]} onChange={onChange} />;
 
   const size = valIsArr ? (value as unknown[]).length : Object.keys(value as object).length;
   const label = valIsArr
@@ -141,7 +162,14 @@ function ExpandableCell({ value }: { value: unknown }) {
       {expanded && (
         <div style={{ marginTop:8 }}>
           {isArrOfObj(value) ? (
-            <ArrOfObjTable arr={value as Record<string,unknown>[]} noMargin />
+            <ArrOfObjTable
+              arr={value as Record<string,unknown>[]}
+              noMargin
+              onEdit={onChange ? (rowIdx, col, v) => {
+                const newArr = (value as Record<string,unknown>[]).map((r, i) => i === rowIdx ? { ...r, [col]: v } : r);
+                onChange(newArr);
+              } : undefined}
+            />
           ) : valIsArr ? (
             <div style={{ fontFamily:"monospace", fontSize:12, background:"rgba(0,0,0,0.03)", borderRadius:8, padding:"8px 12px", border:"1px solid rgba(0,0,0,0.06)" }}>
               {(value as unknown[]).map((item, idx) => (
@@ -154,10 +182,96 @@ function ExpandableCell({ value }: { value: unknown }) {
               ))}
             </div>
           ) : (
-            <TreeExplorer data={value} />
+            <TreeExplorer
+              data={value}
+              onEdit={onChange ? (path, v) => onChange(setAtPath(value, path, v)) : undefined}
+            />
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── EditablePrimitiveArrayCell: array of strings/numbers/bools, edited as a comma-separated list ── */
+function EditablePrimitiveArrayCell({ value, onChange }: { value: unknown[]; onChange?: (v: unknown[]) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) { inputRef.current?.focus(); inputRef.current?.select(); }
+  }, [editing]);
+
+  const display = value.map(v => String(v ?? "null")).join(", ");
+  if (!onChange) return <span style={{ color:"#0891b2", fontSize:12 }}>{display}</span>;
+
+  const startEdit = () => { setDraft(value.map(v => String(v ?? "")).join(", ")); setEditing(true); };
+  const commit = () => {
+    setEditing(false);
+    const allNumbers = value.length > 0 && value.every(v => typeof v === "number");
+    const parts = draft.split(",").map(s => s.trim()).filter(s => s !== "");
+    onChange(allNumbers ? parts.map(Number) : parts);
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") setEditing(false);
+        }}
+        placeholder="comma-separated values"
+        style={{ width:"100%", minWidth:200, boxSizing:"border-box", fontSize:12, fontFamily:"inherit", padding:"4px 7px", borderRadius:6, border:"1px solid #7c3aed", outline:"none", background:"#fff", color:"#0f0a1e" }}
+      />
+    );
+  }
+
+  return (
+    <span onDoubleClick={startEdit} title="Double-click to edit (comma-separated)" style={{ color:"#0891b2", fontSize:12, cursor:"text" }}>
+      {display}
+    </span>
+  );
+}
+
+/* ── EditableCell: primitive cell that turns into an input on double-click ── */
+function EditableCell({ value, onCommit }: { value: unknown; onCommit: (v: unknown) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) { inputRef.current?.focus(); inputRef.current?.select(); }
+  }, [editing]);
+
+  if (typeof value === "object" && value !== null) return <ExpandableCell value={value} onChange={onCommit} />;
+
+  const startEdit = () => { setDraft(value === null || value === undefined ? "" : String(value)); setEditing(true); };
+  const commit = () => { setEditing(false); onCommit(coerceValue(draft, value)); };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") setEditing(false);
+        }}
+        style={{ width:"100%", minWidth:200, boxSizing:"border-box", fontSize:13, fontFamily:"inherit", padding:"5px 8px", borderRadius:6, border:"1px solid #7c3aed", outline:"none", background:"#fff", color:"#0f0a1e" }}
+      />
+    );
+  }
+
+  return (
+    <div onDoubleClick={startEdit} title="Double-click to edit" style={{ cursor:"text" }}>
+      <Cell value={value} />
     </div>
   );
 }
@@ -166,8 +280,9 @@ function ExpandableCell({ value }: { value: unknown }) {
 interface TBProps {
   data: unknown; path: string; depth: number;
   expanded: Set<string>; toggle: (p: string) => void;
+  onEdit?: (path: string, value: unknown) => void;
 }
-function TreeBody({ data, path, depth, expanded, toggle }: TBProps) {
+function TreeBody({ data, path, depth, expanded, toggle, onEdit }: TBProps) {
   if (typeof data !== "object" || data === null) return null;
   const isArr = Array.isArray(data);
   const entries: [string, unknown][] = isArr
@@ -204,6 +319,8 @@ function TreeBody({ data, path, depth, expanded, toggle }: TBProps) {
                   <span style={{ fontSize:11, color:"rgba(15,10,30,0.38)", fontFamily:"monospace" }}>
                     {isArrVal ? `[ ${size} item${size!==1?"s":""} ]` : `{ ${size} key${size!==1?"s":""} }`}
                   </span>
+                ) : onEdit ? (
+                  <EditableCell value={val} onCommit={v => onEdit(fp, v)} />
                 ) : <Cell value={val} />}
               </td>
             </tr>
@@ -215,7 +332,7 @@ function TreeBody({ data, path, depth, expanded, toggle }: TBProps) {
                   </td>
                 </tr>
               ) : (
-                <TreeBody data={val} path={fp} depth={depth+1} expanded={expanded} toggle={toggle} />
+                <TreeBody data={val} path={fp} depth={depth+1} expanded={expanded} toggle={toggle} onEdit={onEdit} />
               )
             )}
           </Fragment>
@@ -226,27 +343,42 @@ function TreeBody({ data, path, depth, expanded, toggle }: TBProps) {
 }
 
 /* ── TreeExplorer: full wrapper ─────────────────────── */
-function TreeExplorer({ data }: { data: unknown }) {
+function TreeExplorer({ data, onEdit }: { data: unknown; onEdit?: (path: string, value: unknown) => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = useCallback((p: string) => {
     setExpanded(prev => { const n = new Set(prev); n.has(p) ? n.delete(p) : n.add(p); return n; });
   }, []);
-  const thS: React.CSSProperties = { padding:"11px 16px", textAlign:"left", fontWeight:700, fontSize:11, letterSpacing:"0.07em", textTransform:"uppercase", color:"rgba(15,10,30,0.45)", borderBottom:"1px solid rgba(124,58,237,0.14)", whiteSpace:"nowrap" };
+  const thS: React.CSSProperties = { padding:"11px 16px", textAlign:"left", fontWeight:700, fontSize:11, letterSpacing:"0.07em", textTransform:"uppercase", color:"rgba(15,10,30,0.45)", borderBottom:"1px solid rgba(124,58,237,0.14)", whiteSpace:"nowrap", position:"sticky", top:0, zIndex:2, background:"rgba(248,245,255,0.98)", backdropFilter:"blur(6px)" };
   return (
-    <div style={{ overflowX:"auto", borderRadius:16, border:"1px solid rgba(124,58,237,0.14)" }}>
+    <div style={{ overflow:"auto", maxHeight:"70vh", borderRadius:16, border:"1px solid rgba(124,58,237,0.14)" }}>
       <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
         <thead>
-          <tr style={{ background:"rgba(248,245,255,0.98)" }}>
+          <tr>
             <th style={{ ...thS, color:"#7c3aed", minWidth:180 }}>Key</th>
             <th style={thS}>Value</th>
           </tr>
         </thead>
         <tbody>
-          <TreeBody data={data} path="" depth={0} expanded={expanded} toggle={toggle} />
+          <TreeBody data={data} path="" depth={0} expanded={expanded} toggle={toggle} onEdit={onEdit} />
         </tbody>
       </table>
     </div>
   );
+}
+
+/* set a value at a dot-path (array segments are 1-based) inside a cloned copy of root */
+function setAtPath(root: unknown, path: string, value: unknown): unknown {
+  const clone = JSON.parse(JSON.stringify(root));
+  const parts = path.split(".");
+  let cur: any = clone;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i];
+    cur = Array.isArray(cur) ? cur[Number(key) - 1] : cur[key];
+  }
+  const last = parts[parts.length - 1];
+  if (Array.isArray(cur)) cur[Number(last) - 1] = value;
+  else cur[last] = value;
+  return clone;
 }
 
 /* ══════════════════════════════════════════════════════ */
@@ -259,8 +391,11 @@ export default function JsonToolsPage() {
   const [copied, setCopied]     = useState(false);
   const [splitPct, setSplitPct] = useState(50);
   const [dragging, setDragging] = useState(false);
+  const [hiddenCols, setHiddenCols]   = useState<Set<string>>(new Set());
+  const [colsMenuOpen, setColsMenuOpen] = useState(false);
   const containerRef  = useRef<HTMLDivElement>(null);
   const textareaRef   = useRef<HTMLTextAreaElement>(null);
+  const colsMenuRef   = useRef<HTMLDivElement>(null);
 
   /* auto-resize textarea to fit content */
   useEffect(() => {
@@ -284,6 +419,16 @@ export default function JsonToolsPage() {
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [dragging]);
 
+  /* close the column-visibility menu on outside click */
+  useEffect(() => {
+    if (!colsMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (colsMenuRef.current && !colsMenuRef.current.contains(e.target as Node)) setColsMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [colsMenuOpen]);
+
   const { parsed, error } = useMemo(() => {
     if (!input.trim()) return { parsed: null, error: "" };
     try { return { parsed: JSON.parse(input), error: "" }; }
@@ -299,6 +444,16 @@ export default function JsonToolsPage() {
     if (!rootIsGrid) return [] as string[];
     return Array.from(new Set((parsed as Record<string,unknown>[]).flatMap(r => Object.keys(r))));
   }, [rootIsGrid, parsed]);
+
+  /* reset hidden-column selection whenever the actual set of columns changes
+     (new JSON pasted) — but not on every edit/sort of the same columns */
+  const colsSignature = cols.join("|");
+  useEffect(() => { setHiddenCols(new Set()); }, [colsSignature]);
+
+  const visibleCols = useMemo(() => cols.filter(c => !hiddenCols.has(c)), [cols, hiddenCols]);
+  const toggleCol = useCallback((c: string) => {
+    setHiddenCols(prev => { const n = new Set(prev); n.has(c) ? n.delete(c) : n.add(c); return n; });
+  }, []);
 
   const rows = useMemo(() => {
     if (!rootIsGrid) return [] as Record<string,unknown>[];
@@ -325,6 +480,33 @@ export default function JsonToolsPage() {
     if (sortCol === col) { if (sortDir === "asc") setSortDir("desc"); else { setSortCol(null); setSortDir("asc"); } }
     else { setSortCol(col); setSortDir("asc"); }
   };
+
+  /* edit a single cell in the grid — writes the change back into the JSON text */
+  const updateCell = useCallback((row: Record<string,unknown>, col: string, value: unknown) => {
+    if (!rootIsGrid) return;
+    const arr = parsed as Record<string,unknown>[];
+    const newArr = arr.map(r => (r === row ? { ...r, [col]: value } : r));
+    setInput(JSON.stringify(newArr, null, 2));
+  }, [parsed, rootIsGrid]);
+
+  /* export the current grid (visible cols, filtered/sorted rows) as an Excel-openable CSV */
+  const exportToExcel = useCallback(() => {
+    const escapeCsv = (v: unknown) => {
+      const s = v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = "﻿" + [visibleCols, ...rows.map(row => visibleCols.map(c => row[c]))]
+      .map(line => line.map(escapeCsv).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "json-export.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [rows, visibleCols]);
 
   /* auto-format valid JSON when pasted */
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -369,6 +551,7 @@ export default function JsonToolsPage() {
     padding:"11px 16px", textAlign:"left", fontWeight:700, fontSize:11,
     letterSpacing:"0.07em", textTransform:"uppercase", color:"rgba(15,10,30,0.45)",
     borderBottom:"1px solid rgba(124,58,237,0.14)", whiteSpace:"nowrap",
+    position:"sticky", top:0, zIndex:2, background:"rgba(248,245,255,0.98)", backdropFilter:"blur(6px)",
   };
 
   const statusText = error
@@ -454,7 +637,7 @@ export default function JsonToolsPage() {
             {parsed && rootIsGrid && (
               <div style={{ marginTop:8, display:"flex", gap:8, flexWrap:"wrap" }}>
                 <span style={{ fontSize:11, fontWeight:700, padding:"5px 11px", borderRadius:7, background:"rgba(124,58,237,0.07)", border:"1px solid rgba(124,58,237,0.12)", color:"#7c3aed" }}>{rows.length}/{(parsed as unknown[]).length} rows</span>
-                <span style={{ fontSize:11, fontWeight:700, padding:"5px 11px", borderRadius:7, background:"rgba(8,145,178,0.07)", border:"1px solid rgba(8,145,178,0.12)", color:"#0891b2" }}>{cols.length} cols</span>
+                <span style={{ fontSize:11, fontWeight:700, padding:"5px 11px", borderRadius:7, background:"rgba(8,145,178,0.07)", border:"1px solid rgba(8,145,178,0.12)", color:"#0891b2" }}>{visibleCols.length}/{cols.length} cols</span>
               </div>
             )}
           </div>
@@ -482,6 +665,10 @@ export default function JsonToolsPage() {
               <>
                 {rootIsGrid ? (
                   <>
+                    {/* edit hint */}
+                    <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:12, fontWeight:600, color:"#7c3aed" }}>
+                      💡 Double-click any cell to edit it — including values inside expanded <strong>+</strong> chips.
+                    </div>
                     {/* filter bar */}
                     <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
                       <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search / filter rows…" style={{ flex:1, minWidth:180, padding:"9px 14px", borderRadius:10, border:"1px solid rgba(124,58,237,0.18)", fontSize:13, background:"#fafbff", color:"#0f0a1e", outline:"none" }} />
@@ -491,15 +678,39 @@ export default function JsonToolsPage() {
                           <button onClick={() => { setSortCol(null); setSortDir("asc"); }} style={{ background:"none", border:"none", cursor:"pointer", color:"#e11d48", fontWeight:900, fontSize:15, lineHeight:1 }}>×</button>
                         </span>
                       )}
-                    </div>
-                    {/* flat grid table */}
-                    <div style={{ overflowX:"auto", borderRadius:16, border:"1px solid rgba(124,58,237,0.14)" }}>
-                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
-                        <thead style={{ position:"sticky", top:0, zIndex:2 }}>
-                          <tr style={{ background:"rgba(248,245,255,0.98)", backdropFilter:"blur(6px)" }}>
-                            <th style={{ ...thS, textAlign:"center", width:48, color:"rgba(15,10,30,0.3)" }}>#</th>
+                      {/* export to Excel */}
+                      <button onClick={exportToExcel} disabled={rows.length === 0} style={{ fontSize:12, fontWeight:700, padding:"8px 14px", borderRadius:9, cursor:rows.length===0?"not-allowed":"pointer", background:"rgba(5,150,105,0.08)", color:"#059669", border:"1px solid rgba(5,150,105,0.2)", opacity:rows.length===0?0.5:1, display:"flex", alignItems:"center", gap:6 }}>
+                        ⬇ Export to Excel
+                      </button>
+                      {/* column visibility picker */}
+                      <div ref={colsMenuRef} style={{ position:"relative" }}>
+                        <button onClick={() => setColsMenuOpen(o => !o)} style={{ fontSize:12, fontWeight:700, padding:"8px 14px", borderRadius:9, cursor:"pointer", background:colsMenuOpen?"rgba(124,58,237,0.14)":"rgba(124,58,237,0.07)", color:"#7c3aed", border:"1px solid rgba(124,58,237,0.2)", display:"flex", alignItems:"center", gap:6 }}>
+                          ⚙ Columns ({visibleCols.length}/{cols.length})
+                        </button>
+                        {colsMenuOpen && (
+                          <div style={{ position:"absolute", top:"calc(100% + 6px)", right:0, zIndex:20, background:"#fff", border:"1px solid rgba(124,58,237,0.18)", borderRadius:12, boxShadow:"0 12px 32px rgba(15,10,30,0.16)", padding:10, minWidth:200, maxHeight:320, overflowY:"auto" }}>
+                            <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                              <button onClick={() => setHiddenCols(new Set())} style={{ flex:1, fontSize:11, fontWeight:700, padding:"5px 8px", borderRadius:6, cursor:"pointer", background:"rgba(5,150,105,0.08)", color:"#059669", border:"1px solid rgba(5,150,105,0.18)" }}>Show all</button>
+                              <button onClick={() => setHiddenCols(new Set(cols))} style={{ flex:1, fontSize:11, fontWeight:700, padding:"5px 8px", borderRadius:6, cursor:"pointer", background:"rgba(225,29,72,0.06)", color:"#e11d48", border:"1px solid rgba(225,29,72,0.15)" }}>Hide all</button>
+                            </div>
                             {cols.map(c => (
-                              <th key={c} onClick={() => handleSort(c)} style={{ ...thS, cursor:"pointer", userSelect:"none", color:sortCol===c?"#7c3aed":"rgba(15,10,30,0.5)", background:sortCol===c?"rgba(124,58,237,0.06)":"transparent" }}>
+                              <label key={c} style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 4px", fontSize:12.5, color:"#0f0a1e", cursor:"pointer" }}>
+                                <input type="checkbox" checked={!hiddenCols.has(c)} onChange={() => toggleCol(c)} />
+                                {c}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* flat grid table — its own scroll box, header frozen to the top of it */}
+                    <div style={{ overflow:"auto", maxHeight:"70vh", borderRadius:16, border:"1px solid rgba(124,58,237,0.14)" }}>
+                      <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                        <thead>
+                          <tr>
+                            <th style={{ ...thS, textAlign:"center", width:48, color:"rgba(15,10,30,0.3)" }}>#</th>
+                            {visibleCols.map(c => (
+                              <th key={c} onClick={() => handleSort(c)} style={{ ...thS, cursor:"pointer", userSelect:"none", color:sortCol===c?"#7c3aed":"rgba(15,10,30,0.5)", background:sortCol===c?"rgba(124,58,237,0.06)":"rgba(248,245,255,0.98)" }}>
                                 {c} {sortCol===c?(sortDir==="asc"?"↑":"↓"):<span style={{ opacity:0.25 }}>↕</span>}
                               </th>
                             ))}
@@ -509,25 +720,25 @@ export default function JsonToolsPage() {
                           {rows.map((row, i) => (
                             <tr key={i} style={{ borderBottom:"1px solid rgba(0,0,0,0.042)", background:i%2===0?"#ffffff":"rgba(124,58,237,0.016)" }}>
                               <td style={{ padding:"10px 14px", textAlign:"center", color:"rgba(15,10,30,0.25)", fontWeight:600, fontSize:11, verticalAlign:"top" }}>{i+1}</td>
-                              {cols.map(c => (
+                              {visibleCols.map(c => (
                                 <td key={c} style={{ padding:"10px 16px", verticalAlign:"top" }}>
-                                  <ExpandableCell value={row[c]} />
+                                  <EditableCell value={row[c]} onCommit={v => updateCell(row, c, v)} />
                                 </td>
                               ))}
                             </tr>
                           ))}
                           {rows.length === 0 && (
-                            <tr><td colSpan={cols.length+1} style={{ padding:"40px", textAlign:"center", color:"rgba(15,10,30,0.3)", fontSize:14 }}>No rows match the filter</td></tr>
+                            <tr><td colSpan={visibleCols.length+1} style={{ padding:"40px", textAlign:"center", color:"rgba(15,10,30,0.3)", fontSize:14 }}>No rows match the filter</td></tr>
                           )}
                         </tbody>
                       </table>
                       <div style={{ padding:"8px 16px", borderTop:"1px solid rgba(124,58,237,0.08)", fontSize:11, color:"rgba(15,10,30,0.35)", fontWeight:600 }}>
-                        {rows.length} of {(parsed as unknown[]).length} rows · {cols.length} columns · click <strong style={{ color:"#7c3aed" }}>+</strong> chips to expand nested values
+                        {rows.length} of {(parsed as unknown[]).length} rows · {visibleCols.length}/{cols.length} columns · double-click a cell to edit · click <strong style={{ color:"#7c3aed" }}>+</strong> chips to expand nested values
                       </div>
                     </div>
                   </>
                 ) : parsed !== null ? (
-                  <TreeExplorer data={parsed} />
+                  <TreeExplorer data={parsed} onEdit={(path, value) => setInput(JSON.stringify(setAtPath(parsed, path, value), null, 2))} />
                 ) : (
                   <div style={{ background:"#fafbff", border:"1px dashed rgba(124,58,237,0.18)", borderRadius:16, minHeight:460, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:12, color:"rgba(15,10,30,0.3)", fontSize:15, fontWeight:600 }}>
                     <span style={{ fontSize:48 }}>⊞</span>
