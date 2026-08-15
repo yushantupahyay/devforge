@@ -23,6 +23,7 @@ const tools = [
   { emoji: "🔐",  title: "JWT Decoder",       desc: "Decode and inspect JWT tokens — header, payload, expiry status and key claims.",  tags: ["Header","Payload","Expiry"],          accent: "#ea580c", glow: "rgba(234,88,12,0.2)",   badge: "badge-orange",  href: "/jwt-decoder",    cat: "Security" },
   { emoji: "🔄",  title: "Image Converter",  desc: "Convert images between JPG, PNG, WebP and BMP. Bulk convert multiple files at once with quality control.", tags: ["JPG","PNG","WebP"],  accent: "#059669", glow: "rgba(5,150,105,0.2)", badge: "badge-emerald", href: "/image-converter", cat: "File" },
   { emoji: "🐦",  title: "Bird Dash",        desc: "A quick Flappy-Bird-style break — flap past the pipes and beat your high score.", tags: ["Canvas","High Score","Just for Fun"], accent: "#c026d3", glow: "rgba(192,38,211,0.2)", badge: "badge-fuchsia", href: "/bird-dash", cat: "Fun" },
+  { emoji: "⏲",  title: "Stopwatch",        desc: "Start, pause, lap and reset with keyboard shortcuts, split-time analysis, and state that survives a page refresh.", tags: ["Laps","Pause/Resume","Persistent"], accent: "#0891b2", glow: "rgba(8,145,178,0.2)", badge: "badge-cyan", href: "/stopwatch", cat: "Time" },
 ];
 
 const features = [
@@ -33,7 +34,7 @@ const features = [
 ];
 
 const stats = [
-  { value: "20",   label: "Developer Tools" },
+  { value: "22",   label: "Developer Tools" },
   { value: "0ms",  label: "Server Latency"  },
   { value: "100%", label: "Free Forever"    },
   { value: "0",    label: "Sign-ups Needed" },
@@ -80,7 +81,7 @@ export default function Home() {
             <div className="animate-fade-up mb-6 flex justify-center lg:justify-start">
               <span className="badge badge-purple px-4 py-2" style={{ fontSize:"11px" }}>
                 <span style={{ width:6,height:6,borderRadius:"50%",background:"#7c3aed",boxShadow:"0 0 6px #7c3aed",display:"inline-block" }}/>
-                v1.0 &nbsp;·&nbsp; 20 Tools &nbsp;·&nbsp; 100% Free
+                v1.0 &nbsp;·&nbsp; 22 Tools &nbsp;·&nbsp; 100% Free
               </span>
             </div>
             <h1 className="animate-fade-up-1 font-black tracking-tighter leading-none mb-4" style={{ fontSize:"clamp(40px,6.5vw,82px)" }}>
@@ -92,7 +93,7 @@ export default function Home() {
                 { icon:"⚡", text:"Right Tool, Right Now" },
                 { icon:"🔒", text:"Zero Sign-up Ever"    },
                 { icon:"🌐", text:"Runs in Your Browser" },
-                { icon:"🛠", text:"20 Tools & Growing"   },
+                { icon:"🛠", text:"22 Tools & Growing"   },
               ].map(t => (
                 <span key={t.text} style={{ fontSize:12, fontWeight:700, padding:"6px 13px", borderRadius:999,
                   background:"rgba(124,58,237,0.07)", border:"1px solid rgba(124,58,237,0.15)", color:"rgba(15,10,30,0.6)", display:"flex", alignItems:"center", gap:5 }}>
