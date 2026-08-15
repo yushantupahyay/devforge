@@ -22,6 +22,7 @@ const tools = [
   { emoji: "Md",  title: "Markdown Preview",  desc: "Write Markdown and see a live rendered preview. Supports code blocks, tables, lists.", tags: ["Preview","Code","Live"],         accent: "#d97706", glow: "rgba(217,119,6,0.2)",   badge: "badge-amber",   href: "/markdown",       cat: "Writing"  },
   { emoji: "🔐",  title: "JWT Decoder",       desc: "Decode and inspect JWT tokens — header, payload, expiry status and key claims.",  tags: ["Header","Payload","Expiry"],          accent: "#ea580c", glow: "rgba(234,88,12,0.2)",   badge: "badge-orange",  href: "/jwt-decoder",    cat: "Security" },
   { emoji: "🔄",  title: "Image Converter",  desc: "Convert images between JPG, PNG, WebP and BMP. Bulk convert multiple files at once with quality control.", tags: ["JPG","PNG","WebP"],  accent: "#059669", glow: "rgba(5,150,105,0.2)", badge: "badge-emerald", href: "/image-converter", cat: "File" },
+  { emoji: "🐦",  title: "Bird Dash",        desc: "A quick Flappy-Bird-style break — flap past the pipes and beat your high score.", tags: ["Canvas","High Score","Just for Fun"], accent: "#c026d3", glow: "rgba(192,38,211,0.2)", badge: "badge-fuchsia", href: "/bird-dash", cat: "Fun" },
 ];
 
 const features = [
