@@ -40,7 +40,7 @@ export default function TwitterImage() {
               <span style={{ color: "white", fontSize: 26, fontWeight: 900, letterSpacing: -0.5 }}>iNeedTools</span>
             </div>
             <div style={{ padding: "8px 18px", borderRadius: 999, border: "1px solid rgba(124,58,237,0.5)", background: "rgba(124,58,237,0.15)", color: "#c4b5fd", fontSize: 14, fontWeight: 700, display: "flex" }}>
-              19 Free Tools · No Sign-up
+              23 Free Tools · No Sign-up
             </div>
           </div>
 

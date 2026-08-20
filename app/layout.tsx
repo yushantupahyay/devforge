@@ -1,6 +1,30 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://ineedtools.in/#website",
+      name: "iNeedTools",
+      alternateName: ["I Need Tools", "I Need A Tool", "Need Tools"],
+      url: "https://ineedtools.in",
+      description:
+        "Free online developer tools and utilities — SQL generators, JSON tools, image converters, PDF tools, QR codes, hash generators and more. Zero sign-up, runs entirely in your browser.",
+      inLanguage: "en",
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://ineedtools.in/#organization",
+      name: "iNeedTools",
+      alternateName: "I Need Tools",
+      url: "https://ineedtools.in",
+      logo: "https://ineedtools.in/icon.svg",
+    },
+  ],
+};
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,7 +43,7 @@ export const metadata: Metadata = {
     template: "%s | iNeedTools",
   },
   description:
-    "Need tools online? iNeedTools offers free SQL generators, JSON validators, QR code generators, Base64 converters, image converters, PDF tools, UUID generators, hash generators, regex testers, age calculators and many more. Zero sign-up, runs entirely in your browser.",
+    "I Need Tools? iNeedTools has you covered — free SQL generators, JSON validators, QR code generators, Base64 converters, image converters, PDF tools, UUID generators, hash generators, regex testers, age calculators, an HTML compiler, a stopwatch and many more. Zero sign-up, runs entirely in your browser.",
   keywords: [
     "free online developer tools", "sql generator", "json validator", "json formatter",
     "qr code generator", "base64 encoder decoder", "uuid generator", "hash generator",
@@ -27,7 +51,9 @@ export const metadata: Metadata = {
     "jpg to png", "png to webp", "image format converter", "pdf tools",
     "word to pdf", "pdf to word", "color picker", "hex to rgb", "csv to json",
     "markdown preview", "jwt decoder", "timestamp converter", "text tools",
-    "ineedtools", "browser tools", "no signup tools",
+    "html compiler", "online stopwatch", "flappy bird game",
+    "ineedtools", "i need tools", "i need a tool", "need tools online",
+    "browser tools", "no signup tools",
   ],
   authors: [{ name: "iNeedTools", url: "https://ineedtools.in" }],
   creator: "iNeedTools",
@@ -60,8 +86,17 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: "/icon.svg",
   },
+  appleWebApp: {
+    capable: true,
+    title: "iNeedTools",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
+  colorScheme: "light",
 };
 
 export default function RootLayout({
@@ -75,7 +110,13 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

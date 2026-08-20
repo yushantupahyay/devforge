@@ -5,6 +5,7 @@ const BASE = "https://ineedtools.in";
 const routes = [
   { path: "/",                priority: 1.0,  changeFrequency: "weekly"  },
   { path: "/sql-generator",   priority: 0.9,  changeFrequency: "monthly" },
+  { path: "/sql-to-model",    priority: 0.9,  changeFrequency: "monthly" },
   { path: "/json-tools",      priority: 0.9,  changeFrequency: "monthly" },
   { path: "/image-converter", priority: 0.9,  changeFrequency: "monthly" },
   { path: "/image-tools",     priority: 0.85, changeFrequency: "monthly" },
@@ -23,6 +24,9 @@ const routes = [
   { path: "/timestamp",       priority: 0.75, changeFrequency: "monthly" },
   { path: "/word-to-pdf",     priority: 0.75, changeFrequency: "monthly" },
   { path: "/pdf-to-word",     priority: 0.75, changeFrequency: "monthly" },
+  { path: "/html-compiler",   priority: 0.75, changeFrequency: "monthly" },
+  { path: "/bird-dash",       priority: 0.6,  changeFrequency: "monthly" },
+  { path: "/stopwatch",       priority: 0.75, changeFrequency: "monthly" },
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {

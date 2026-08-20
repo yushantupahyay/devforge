@@ -58,7 +58,7 @@ export default function OGImage() {
               color: "#c4b5fd", fontSize: 14, fontWeight: 700,
               display: "flex",
             }}>
-              19 Free Tools · No Sign-up
+              23 Free Tools · No Sign-up
             </div>
           </div>
 
