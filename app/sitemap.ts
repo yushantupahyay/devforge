@@ -5,7 +5,7 @@ const BASE = "https://ineedtools.in";
 const routes = [
   { path: "/",                priority: 1.0,  changeFrequency: "weekly"  },
   { path: "/sql-generator",   priority: 0.9,  changeFrequency: "monthly" },
-  { path: "/sql-to-model",    priority: 0.9,  changeFrequency: "monthly" },
+  { path: "/model-generator", priority: 0.9,  changeFrequency: "monthly" },
   { path: "/json-tools",      priority: 0.9,  changeFrequency: "monthly" },
   { path: "/image-converter", priority: 0.9,  changeFrequency: "monthly" },
   { path: "/image-tools",     priority: 0.85, changeFrequency: "monthly" },

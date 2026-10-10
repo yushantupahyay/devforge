@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useState } from "react";
 import Navbar from "../components/Navbar";
@@ -12,6 +12,8 @@ const SQL_DIALECTS = [
   { value: "postgresql",label: "PostgreSQL"                },
   { value: "oracle",    label: "Oracle"                    },
   { value: "sqlite",    label: "SQLite"                    },
+  { value: "json",      label: "JSON"                      },
+  { value: "xml",       label: "XML"                       },
 ];
 
 const TARGET_LANGS = [
@@ -28,12 +30,9 @@ const TARGET_LANGS = [
 ];
 
 /* ── Naming mode ─────────────────────────────────────────────── */
-// "exact"      → keep identifiers exactly as they appear in the SQL (no case changes)
-// "convention" → re-case identifiers to each language's usual style (PascalCase, camelCase, snake_case…)
 type NamingMode = "exact" | "convention";
 
 /* ── Type Mapping: sqlType → per-language type ───────────────── */
-
 type TypeMap = Record<string, string> & { default: string };
 const TM: Record<string, TypeMap> = {
   // Integers
@@ -130,10 +129,6 @@ function toCamelCase(s: string) {
 function toSnakeCase(s: string) {
   return s.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_/, "").replace(/__+/g, "_");
 }
-// Re-cases `raw` according to `style`, unless `mode` is "exact" — in which case
-// the original SQL spelling/casing is kept verbatim (only ever used for name
-// resolution, never for anything that must be syntactically valid, since the
-// parser already strips out spaces / brackets / quotes).
 function convName(raw: string, style: "pascal" | "camel" | "snake", mode: NamingMode): string {
   if (mode === "exact") return raw;
   if (style === "pascal") return toPascalCase(raw);
@@ -167,14 +162,9 @@ function splitTopLevel(str: string, delim: string): string[] {
 
 function parseColumn(def: string): Column | null {
   const trimmed = def.trim();
-  // Skip empty or constraint lines
   const up = trimmed.toUpperCase();
   if (!trimmed || /^(CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY\s|CHECK\s*\()/i.test(trimmed)) return null;
 
-  // Column name (possibly quoted with [], "", ``) — casing is preserved exactly as written.
-  // Only a *quoted* identifier is allowed to contain spaces; an unquoted name must stop at
-  // the first whitespace, otherwise a paren-less type (INT, DATE, TEXT…) followed by
-  // modifiers like "PRIMARY KEY" or "NOT NULL" gets greedily swallowed into the name.
   let name: string;
   let rest: string;
   const quotedMatch = trimmed.match(/^([\["`])([^\]"`]+)[\]"`]\s+/);
@@ -188,13 +178,10 @@ function parseColumn(def: string): Column | null {
     rest = trimmed.slice(plainMatch[0].length).trim();
   }
 
-  // Data type — may contain spaces (e.g. "DOUBLE PRECISION", "CHARACTER VARYING")
   const typeMatch = rest.match(/^[\["`]?([\w ]+?)[\]"`]?(?:\s*\(([^)]*)\))?(?:\s|$)/);
   if (!typeMatch) return null;
   const rawType = typeMatch[1].trim().toUpperCase();
   const params  = typeMatch[2] ? typeMatch[2].split(",").map(p => p.trim()) : [];
-  // Truncate at CONSTRAINT so a missing trailing comma doesn't bleed constraint
-  // text into this column's attribute checks (e.g. PRIMARY KEY → isPrimaryKey)
   const afterFull = rest.slice(typeMatch[0].length).trim();
   const cIdx      = afterFull.toUpperCase().indexOf("CONSTRAINT");
   const afterRaw  = (cIdx >= 0 ? afterFull.slice(0, cIdx) : afterFull).toUpperCase();
@@ -252,12 +239,167 @@ function parseSQL(sql: string): ParsedTable {
   return { tableName, rawTableName: cleanRawName, columns };
 }
 
+/* ── JSON Parser ─────────────────────────────────────────────── */
+function inferJsonType(val: any): string {
+  if (val === null) return "JSON";
+  if (typeof val === "boolean") return "BOOLEAN";
+  if (typeof val === "number") {
+    if (Number.isInteger(val)) {
+      if (val >= -2147483648 && val <= 2147483647) return "INT";
+      return "BIGINT";
+    }
+    return "FLOAT";
+  }
+  if (typeof val === "string") {
+    // Detect date/time
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) return "DATETIME";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return "DATE";
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) return "UUID";
+    return "VARCHAR";
+  }
+  if (Array.isArray(val)) return "JSON";
+  if (typeof val === "object") return "JSON";
+  return "VARCHAR";
+}
+
+function parseJSON(jsonStr: string): ParsedTable {
+  let data: any;
+  try {
+    data = JSON.parse(jsonStr);
+  } catch (e) {
+    throw new Error("Invalid JSON: " + (e as Error).message);
+  }
+
+  // If it's an array, use the first element
+  if (Array.isArray(data)) {
+    if (!data.length) throw new Error("JSON array is empty. Please provide at least one object.");
+    data = data[0];
+  }
+
+  if (typeof data !== "object" || data === null) {
+    throw new Error("JSON must be an object or an array of objects.");
+  }
+
+  // Try to find a sensible table name
+  let tableName = "Root";
+  const keys = Object.keys(data);
+  if (keys.length === 1 && typeof data[keys[0]] === "object" && data[keys[0]] !== null && !Array.isArray(data[keys[0]])) {
+    tableName = keys[0];
+    data = data[keys[0]];
+  } else if (keys.length === 1 && Array.isArray(data[keys[0]]) && data[keys[0]].length > 0) {
+    tableName = keys[0];
+    data = data[keys[0]][0];
+  }
+
+  const cleanRawName = tableName.replace(/[^a-zA-Z0-9_]/g, "_");
+  const pascalName = toPascalCase(cleanRawName);
+
+  const columns: Column[] = [];
+  for (const [key, val] of Object.entries(data)) {
+    const sqlType = inferJsonType(val);
+    const isNullable = val === null;
+    const col: Column = {
+      name: key,
+      sqlType,
+      isNullable,
+      isPrimaryKey: key.toLowerCase() === "id" || key.toLowerCase() === `${cleanRawName.toLowerCase()}_id` || key.toLowerCase() === `${cleanRawName.toLowerCase()}id`,
+      isAutoIncrement: false,
+    };
+    columns.push(col);
+  }
+
+  if (!columns.length) throw new Error("No properties found in the JSON object.");
+  return { tableName: pascalName, rawTableName: cleanRawName, columns };
+}
+
+/* ── XML Parser ──────────────────────────────────────────────── */
+function parseXML(xmlStr: string): ParsedTable {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlStr, "text/xml");
+
+  const parseError = doc.querySelector("parsererror");
+  if (parseError) {
+    throw new Error("Invalid XML: " + parseError.textContent?.slice(0, 200));
+  }
+
+  const root = doc.documentElement;
+  if (!root) throw new Error("XML document has no root element.");
+
+  // If root has a single child that is an element, use that as the record root
+  let recordNode: Element = root;
+  const elementChildren = Array.from(root.children);
+  if (elementChildren.length === 1) {
+    recordNode = elementChildren[0];
+  }
+
+  // Collect all unique child element names and infer types
+  const fieldMap = new Map<string, { type: string; nullable: boolean }>();
+  const rows = Array.from(recordNode.children);
+  if (!rows.length) throw new Error("XML contains no child elements to convert into columns.");
+
+  for (const row of rows) {
+    for (const child of Array.from(row.children)) {
+      const key = child.tagName;
+      const text = child.textContent?.trim() || "";
+      let type = "VARCHAR";
+      if (/^-?\d+$/.test(text)) {
+        const n = parseInt(text);
+        type = (n >= -2147483648 && n <= 2147483647) ? "INT" : "BIGINT";
+      } else if (/^-?\d*\.\d+$/.test(text)) {
+        type = "DECIMAL";
+      } else if (/^(true|false)$/i.test(text)) {
+        type = "BOOLEAN";
+      } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(text)) {
+        type = "DATETIME";
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        type = "DATE";
+      } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) {
+        type = "UUID";
+      }
+      if (!fieldMap.has(key)) {
+        fieldMap.set(key, { type, nullable: false });
+      } else {
+        const existing = fieldMap.get(key)!;
+        // Prefer more general types
+        if (existing.type !== type) {
+          if (existing.type === "INT" && type === "BIGINT") existing.type = "BIGINT";
+          else if (existing.type === "INT" && type === "DECIMAL") existing.type = "DECIMAL";
+          else if (existing.type === "BIGINT" && type === "DECIMAL") existing.type = "DECIMAL";
+          else if (type === "VARCHAR" || existing.type === "VARCHAR") existing.type = "VARCHAR";
+        }
+      }
+    }
+  }
+
+  const cleanRawName = root.tagName.replace(/[^a-zA-Z0-9_]/g, "_") || "Root";
+  const pascalName = toPascalCase(cleanRawName);
+
+  const columns: Column[] = [];
+  for (const [key, info] of fieldMap) {
+    columns.push({
+      name: key,
+      sqlType: info.type,
+      isNullable: info.nullable,
+      isPrimaryKey: key.toLowerCase() === "id" || key.toLowerCase() === `${cleanRawName.toLowerCase()}_id` || key.toLowerCase() === `${cleanRawName.toLowerCase()}id`,
+      isAutoIncrement: false,
+    });
+  }
+
+  if (!columns.length) throw new Error("No fields found in the XML data.");
+  return { tableName: pascalName, rawTableName: cleanRawName, columns };
+}
+
+/* ── Unified Parser ──────────────────────────────────────────── */
+function parseInput(input: string, dialect: string): ParsedTable {
+  if (dialect === "json") return parseJSON(input);
+  if (dialect === "xml")  return parseXML(input);
+  return parseSQL(input);
+}
+
 /* ── Type resolver ───────────────────────────────────────────── */
 function getBaseType(col: Column, lang: string): string {
   const t = col.sqlType;
-  // TINYINT(1) → boolean
   if (t === "TINYINT" && col.maxLength === 1) return TM["BOOLEAN"]?.[lang] || "bool";
-  // Oracle NUMBER without scale → integer by precision
   if (t === "NUMBER" && col.precision !== undefined && (col.scale === undefined || col.scale === 0)) {
     if (col.precision <= 4)  return TM["SMALLINT"]?.[lang] || "short";
     if (col.precision <= 9)  return TM["INT"]?.[lang]      || "int";
@@ -273,7 +415,7 @@ function nullable(base: string, col: Column, lang: string): string {
     case "python":     return `Optional[${base}]`;
     case "java":       return base === "int" ? "Integer" : base === "long" ? "Long" : base === "short" ? "Short" : base === "byte" ? "Byte" : base === "boolean" ? "Boolean" : base === "float" ? "Float" : base === "double" ? "Double" : base;
     case "typescript": return `${base} | null`;
-    case "javascript": return base; // JS has no type annotations
+    case "javascript": return base;
     case "go":         return base === "bool" ? "*bool" : base.startsWith("[]") ? base : `*${base}`;
     case "kotlin":     return `${base}?`;
     case "swift":      return `${base}?`;
@@ -359,7 +501,6 @@ function genJava({ tableName, rawTableName, columns }: ParsedTable, mode: Naming
     lines.push(`    private ${type} ${fieldName};`);
     lines.push("");
   }
-  // Getters & setters
   for (const col of columns) {
     const base = getBaseType(col, "java");
     const type = nullable(base, col, "java");
@@ -420,13 +561,10 @@ function genGo({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMo
   for (const col of columns) {
     const base = getBaseType(col, "go");
     const type = nullable(base, col, "go");
-    // Go requires an uppercase first letter to export a struct field (needed
-    // for encoding/json etc.), so in "exact" mode we only capitalize the
-    // first letter and otherwise leave the rest of the name untouched.
     const fieldName = mode === "exact"
       ? (col.name.charAt(0).toUpperCase() + col.name.slice(1))
       : toPascalCase(col.name);
-    const dbTag   = col.name; // always the real column name
+    const dbTag   = col.name;
     const jsonTag = convName(col.name, "camel", mode);
     lines.push(`    ${fieldName.padEnd(20)} ${type.padEnd(16)} \`db:"${dbTag}" json:"${jsonTag}"\``);
   }
@@ -530,7 +668,6 @@ function genRust({ tableName, rawTableName, columns }: ParsedTable, mode: Naming
       const pascal = toPascalCase(col.name);
       if (fieldName !== toSnakeCase(pascal)) lines.push(`    #[serde(rename = "${col.name}")]`);
     } else if (fieldName !== col.name) {
-      // "exact" identifiers should already match, but guard just in case
       lines.push(`    #[serde(rename = "${col.name}")]`);
     }
     lines.push(`    pub ${fieldName}: ${type},`);
@@ -555,7 +692,7 @@ function generateCode(table: ParsedTable, lang: string, mode: NamingMode): strin
   }
 }
 
-/* ── Sample SQL per dialect ──────────────────────────────────── */
+/* ── Sample data per dialect ─────────────────────────────────── */
 const SAMPLES: Record<string, string> = {
   sqlserver: `CREATE TABLE [dbo].[Users] (
     [UserId]       INT             IDENTITY(1,1)  NOT NULL,
@@ -628,6 +765,43 @@ const SAMPLES: Record<string, string> = {
     is_active     INTEGER  NOT NULL DEFAULT 1,
     balance       REAL     NOT NULL DEFAULT 0
 );`,
+  json: `{
+  "id": 1,
+  "username": "johndoe",
+  "email": "john@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "dateOfBirth": "1990-05-15",
+  "createdAt": "2026-01-15T10:30:00Z",
+  "isActive": true,
+  "balance": 1250.75,
+  "profileImage": null,
+  "uniqueCode": "550e8400-e29b-41d4-a716-446655440000"
+}`,
+  xml: `<users>
+  <user>
+    <id>1</id>
+    <username>johndoe</username>
+    <email>john@example.com</email>
+    <firstName>John</firstName>
+    <lastName>Doe</lastName>
+    <dateOfBirth>1990-05-15</dateOfBirth>
+    <createdAt>2026-01-15T10:30:00Z</createdAt>
+    <isActive>true</isActive>
+    <balance>1250.75</balance>
+  </user>
+  <user>
+    <id>2</id>
+    <username>janedoe</username>
+    <email>jane@example.com</email>
+    <firstName>Jane</firstName>
+    <lastName>Doe</lastName>
+    <dateOfBirth>1992-08-22</dateOfBirth>
+    <createdAt>2026-02-20T14:15:00Z</createdAt>
+    <isActive>false</isActive>
+    <balance>890.50</balance>
+  </user>
+</users>`,
 };
 
 /* ── Component ──────────────────────────────────────────────── */
@@ -635,24 +809,25 @@ export default function SqlToModel() {
   const [dialect, setDialect] = useState("sqlserver");
   const [lang,    setLang]    = useState("csharp");
   const [mode,    setMode]    = useState<NamingMode>("exact");
-  const [sql,     setSql]     = useState("");
+  const [input,   setInput]   = useState("");
   const [output,  setOutput]  = useState("");
   const [error,   setError]   = useState("");
   const [copied,  setCopied]  = useState(false);
 
   const selectedLang = TARGET_LANGS.find(l => l.value === lang)!;
+  const isSql = !["json", "xml"].includes(dialect);
 
   const convert = () => {
     setError(""); setOutput("");
     try {
-      const table = parseSQL(sql);
+      const table = parseInput(input, dialect);
       setOutput(generateCode(table, lang, mode));
     } catch (e) {
       setError(String(e).replace("Error: ", ""));
     }
   };
 
-  const loadSample = () => { setSql(SAMPLES[dialect] || ""); setOutput(""); setError(""); };
+  const loadSample = () => { setInput(SAMPLES[dialect] || ""); setOutput(""); setError(""); };
 
   const copyOutput = async () => {
     try { await navigator.clipboard.writeText(output); } catch { /**/ }
@@ -675,24 +850,22 @@ export default function SqlToModel() {
     <div style={{ background:"#ffffff" }} className="min-h-screen flex flex-col">
       <Navbar />
 
-      {/* Header */}
       <section style={{ background:"linear-gradient(135deg,#eff6ff,#dbeafe 30%,#fff)", padding:"36px 40px 28px" }}>
         <p className="section-label mb-2" style={{ color:accent }}>Database Tool</p>
         <div className="section-line" style={{ margin:"0 0 12px", background:"linear-gradient(90deg,#2563eb,#1d4ed8)" }} />
         <h1 className="font-black tracking-tight mb-2" style={{ fontSize:"clamp(26px,3.5vw,48px)", color:"#0f0a1e" }}>
-          SQL <span style={{ background:"linear-gradient(135deg,#2563eb,#1d4ed8)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>→ Model</span>
+          Schema <span style={{ background:"linear-gradient(135deg,#2563eb,#1d4ed8)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent" }}>→ Model</span>
         </h1>
         <p style={{ color:"rgba(15,10,30,0.5)", fontSize:15, maxWidth:660 }}>
-          Paste any <strong>CREATE TABLE</strong> SQL — from SQL Server, MySQL, PostgreSQL, Oracle or SQLite — and instantly generate a typed model class in C#, Python, Java, TypeScript, Go, Kotlin, Swift, C++ or Rust.
+          Paste <strong>CREATE TABLE</strong> SQL, <strong>JSON</strong>, or <strong>XML</strong> — from SQL Server, MySQL, PostgreSQL, Oracle, SQLite, JSON or XML — and instantly generate a typed model class in C#, Python, Java, TypeScript, Go, Kotlin, Swift, C++ or Rust.
         </p>
       </section>
 
       <div style={{ width:"100%", padding:"20px 40px 48px", flex:1, boxSizing:"border-box", maxWidth:1280, margin:"0 auto" }}>
 
-        {/* Controls */}
         <div style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:18, alignItems:"flex-end" }}>
           <div>
-            <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Source Database</label>
+            <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:5 }}>Source Format</label>
             <select
               value={dialect} onChange={e => setDialect(e.target.value)}
               style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid rgba(37,99,235,0.3)", fontSize:13, fontWeight:600, color:"#0f0a1e", background:"#fff", cursor:"pointer", outline:"none" }}
@@ -716,9 +889,9 @@ export default function SqlToModel() {
             <select
               value={mode} onChange={e => setMode(e.target.value as NamingMode)}
               style={{ padding:"8px 14px", borderRadius:9, border:"1.5px solid rgba(37,99,235,0.3)", fontSize:13, fontWeight:600, color:"#0f0a1e", background:"#fff", cursor:"pointer", outline:"none" }}
-              title="Exact: keep table/column names exactly as written in the SQL. Convention: re-case names to each language's usual style."
+              title="Exact: keep field names exactly as written. Convention: re-case names to each language's usual style."
             >
-              <option value="exact">Match SQL exactly</option>
+              <option value="exact">Match source exactly</option>
               <option value="convention">Language convention</option>
             </select>
           </div>
@@ -729,33 +902,36 @@ export default function SqlToModel() {
             </button>
             <button
               onClick={convert}
-              disabled={!sql.trim()}
-              style={{ padding:"9px 24px", borderRadius:9, fontSize:13, fontWeight:700, cursor:sql.trim()?"pointer":"not-allowed", background:`linear-gradient(135deg,#2563eb,#1d4ed8)`, color:"#fff", border:"none", boxShadow:`0 4px 14px ${glow}`, opacity:sql.trim()?1:0.5 }}
+              disabled={!input.trim()}
+              style={{ padding:"9px 24px", borderRadius:9, fontSize:13, fontWeight:700, cursor:input.trim()?"pointer":"not-allowed", background:`linear-gradient(135deg,#2563eb,#1d4ed8)`, color:"#fff", border:"none", boxShadow:`0 4px 14px ${glow}`, opacity:input.trim()?1:0.5 }}
             >
               Convert →
             </button>
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <div style={{ padding:"12px 16px", borderRadius:10, background:"rgba(225,29,72,0.05)", border:"1px solid rgba(225,29,72,0.2)", fontSize:13, color:"#e11d48", marginBottom:14 }}>
             <strong>✕ Parse error:</strong> {error}
           </div>
         )}
 
-        {/* Two-panel editor */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
 
-          {/* SQL Input */}
           <div>
             <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:6 }}>
-              SQL — CREATE TABLE
+              {isSql ? "SQL — CREATE TABLE" : dialect === "json" ? "JSON Input" : "XML Input"}
             </label>
             <textarea
-              value={sql}
-              onChange={e => setSql(e.target.value)}
-              placeholder={`Paste your CREATE TABLE SQL here…\n\nExample:\nCREATE TABLE [dbo].[Users] (\n    [UserId]   INT IDENTITY(1,1) NOT NULL,\n    [Username] NVARCHAR(100)     NOT NULL,\n    …\n);`}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder={
+                isSql
+                  ? `Paste your CREATE TABLE SQL here…\n\nExample:\nCREATE TABLE [dbo].[Users] (\n    [UserId]   INT IDENTITY(1,1) NOT NULL,\n    [Username] NVARCHAR(100)     NOT NULL,\n    …\n);`
+                  : dialect === "json"
+                  ? `Paste your JSON here…\n\nExample:\n{\n  "id": 1,\n  "username": "johndoe",\n  "email": "john@example.com",\n  "isActive": true\n}`
+                  : `Paste your XML here…\n\nExample:\n<user>\n  <id>1</id>\n  <username>johndoe</username>\n  <email>john@example.com</email>\n</user>`
+              }
               spellCheck={false}
               style={{
                 width:"100%", height:480, padding:"16px", borderRadius:12, resize:"vertical",
@@ -766,7 +942,6 @@ export default function SqlToModel() {
             />
           </div>
 
-          {/* Generated Code */}
           <div>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
               <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase" }}>
@@ -791,7 +966,7 @@ export default function SqlToModel() {
             </div>
             <textarea
               readOnly
-              value={output || (error ? "" : "// Generated code will appear here…\n// Paste your SQL on the left and click Convert →")}
+              value={output || (error ? "" : "// Generated code will appear here…\n// Paste your input on the left and click Convert →")}
               spellCheck={false}
               style={{
                 width:"100%", height:480, padding:"16px", borderRadius:12, resize:"vertical",
@@ -803,9 +978,8 @@ export default function SqlToModel() {
           </div>
         </div>
 
-        {/* Feature chips */}
         <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:16 }}>
-          {["SQL Server / SSMS","MySQL","PostgreSQL","Oracle","SQLite"].map(d => (
+          {["SQL Server / SSMS","MySQL","PostgreSQL","Oracle","SQLite","JSON","XML"].map(d => (
             <span key={d} style={{ fontSize:11, padding:"4px 10px", borderRadius:6, background:"rgba(37,99,235,0.07)", border:"1px solid rgba(37,99,235,0.15)", color:"#1d4ed8", fontWeight:600 }}>{d}</span>
           ))}
           <span style={{ fontSize:11, padding:"4px 6px", color:"rgba(15,10,30,0.3)", fontWeight:700 }}>→</span>
@@ -820,7 +994,7 @@ export default function SqlToModel() {
       </div>
 
       <footer className="mt-auto py-8 text-center" style={{ borderTop:"1px solid rgba(37,99,235,0.1)", fontSize:13, color:"rgba(15,10,30,0.35)" }}>
-        <p>© 2026 iNeedTools · SQL → Model</p>
+        <p>© 2026 iNeedTools · Schema → Model</p>
       </footer>
     </div>
   );
