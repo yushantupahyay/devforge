@@ -1,41 +1,39 @@
- "use client";
+"use client";
 
 import { useState } from "react";
 import Navbar from "../components/Navbar";
 import Link from "next/link";
 
-/* ── Dialects & Languages ────────────────────────────────────── */
+/* ── Source Formats & Target Languages ───────────────────────── */
 
 const SQL_DIALECTS = [
-  { value: "sqlserver", label: "SQL Server / SSMS / T-SQL" },
-  { value: "mysql",     label: "MySQL / MariaDB"           },
-  { value: "postgresql",label: "PostgreSQL"                },
-  { value: "oracle",    label: "Oracle"                    },
-  { value: "sqlite",    label: "SQLite"                    },
-  { value: "json",      label: "JSON"                      },
-  { value: "xml",       label: "XML"                       },
+  { value: "sqlserver",  label: "SQL Server / SSMS / T-SQL" },
+  { value: "mysql",      label: "MySQL / MariaDB"           },
+  { value: "postgresql", label: "PostgreSQL"                },
+  { value: "oracle",     label: "Oracle"                    },
+  { value: "sqlite",     label: "SQLite"                    },
+  { value: "json",       label: "JSON"                      },
+  { value: "xml",        label: "XML"                       },
 ];
 
 const TARGET_LANGS = [
-  { value: "csharp",     label: "C#",              ext: "cs"    },
-  { value: "python",     label: "Python",          ext: "py"    },
-  { value: "java",       label: "Java",            ext: "java"  },
-  { value: "typescript", label: "TypeScript",      ext: "ts"    },
-  { value: "javascript", label: "JavaScript",      ext: "js"    },
-  { value: "go",         label: "Go",              ext: "go"    },
-  { value: "kotlin",     label: "Kotlin",          ext: "kt"    },
-  { value: "swift",      label: "Swift",           ext: "swift" },
-  { value: "cpp",        label: "C++",             ext: "hpp"   },
-  { value: "rust",       label: "Rust",            ext: "rs"    },
+  { value: "csharp",     label: "C#",         ext: "cs"    },
+  { value: "python",     label: "Python",     ext: "py"    },
+  { value: "java",       label: "Java",       ext: "java"  },
+  { value: "typescript", label: "TypeScript", ext: "ts"    },
+  { value: "javascript", label: "JavaScript", ext: "js"    },
+  { value: "go",         label: "Go",         ext: "go"    },
+  { value: "kotlin",     label: "Kotlin",     ext: "kt"    },
+  { value: "swift",      label: "Swift",      ext: "swift" },
+  { value: "cpp",        label: "C++",        ext: "hpp"   },
+  { value: "rust",       label: "Rust",       ext: "rs"    },
 ];
 
-/* ── Naming mode ─────────────────────────────────────────────── */
 type NamingMode = "exact" | "convention";
 
-/* ── Type Mapping: sqlType → per-language type ───────────────── */
+/* ── Type Mapping ────────────────────────────────────────────── */
 type TypeMap = Record<string, string> & { default: string };
 const TM: Record<string, TypeMap> = {
-  // Integers
   INT:          { default:"int",     csharp:"int",         python:"int",       java:"int",             typescript:"number",    javascript:"number",  go:"int32",    kotlin:"Int",           swift:"Int32",    cpp:"int32_t",              rust:"i32"              },
   INTEGER:      { default:"int",     csharp:"int",         python:"int",       java:"int",             typescript:"number",    javascript:"number",  go:"int32",    kotlin:"Int",           swift:"Int32",    cpp:"int32_t",              rust:"i32"              },
   INT4:         { default:"int",     csharp:"int",         python:"int",       java:"int",             typescript:"number",    javascript:"number",  go:"int32",    kotlin:"Int",           swift:"Int32",    cpp:"int32_t",              rust:"i32"              },
@@ -48,13 +46,11 @@ const TM: Record<string, TypeMap> = {
   SERIAL:       { default:"int",     csharp:"int",         python:"int",       java:"int",             typescript:"number",    javascript:"number",  go:"int32",    kotlin:"Int",           swift:"Int32",    cpp:"int32_t",              rust:"i32"              },
   BIGSERIAL:    { default:"long",    csharp:"long",        python:"int",       java:"long",            typescript:"number",    javascript:"number",  go:"int64",    kotlin:"Long",          swift:"Int64",    cpp:"int64_t",              rust:"i64"              },
   SMALLSERIAL:  { default:"short",   csharp:"short",       python:"int",       java:"short",           typescript:"number",    javascript:"number",  go:"int16",    kotlin:"Short",         swift:"Int16",    cpp:"int16_t",              rust:"i16"              },
-  // Decimals
   DECIMAL:      { default:"decimal", csharp:"decimal",     python:"Decimal",   java:"BigDecimal",      typescript:"number",    javascript:"number",  go:"float64",  kotlin:"BigDecimal",    swift:"Decimal",  cpp:"double",               rust:"f64"              },
   NUMERIC:      { default:"decimal", csharp:"decimal",     python:"Decimal",   java:"BigDecimal",      typescript:"number",    javascript:"number",  go:"float64",  kotlin:"BigDecimal",    swift:"Decimal",  cpp:"double",               rust:"f64"              },
   NUMBER:       { default:"decimal", csharp:"decimal",     python:"Decimal",   java:"BigDecimal",      typescript:"number",    javascript:"number",  go:"float64",  kotlin:"BigDecimal",    swift:"Decimal",  cpp:"double",               rust:"f64"              },
   MONEY:        { default:"decimal", csharp:"decimal",     python:"Decimal",   java:"BigDecimal",      typescript:"number",    javascript:"number",  go:"float64",  kotlin:"BigDecimal",    swift:"Decimal",  cpp:"double",               rust:"f64"              },
   SMALLMONEY:   { default:"decimal", csharp:"decimal",     python:"Decimal",   java:"BigDecimal",      typescript:"number",    javascript:"number",  go:"float64",  kotlin:"BigDecimal",    swift:"Decimal",  cpp:"double",               rust:"f64"              },
-  // Floats
   FLOAT:        { default:"double",  csharp:"double",      python:"float",     java:"double",          typescript:"number",    javascript:"number",  go:"float64",  kotlin:"Double",        swift:"Double",   cpp:"double",               rust:"f64"              },
   FLOAT4:       { default:"float",   csharp:"float",       python:"float",     java:"float",           typescript:"number",    javascript:"number",  go:"float32",  kotlin:"Float",         swift:"Float",    cpp:"float",                rust:"f32"              },
   FLOAT8:       { default:"double",  csharp:"double",      python:"float",     java:"double",          typescript:"number",    javascript:"number",  go:"float64",  kotlin:"Double",        swift:"Double",   cpp:"double",               rust:"f64"              },
@@ -63,7 +59,6 @@ const TM: Record<string, TypeMap> = {
   "DOUBLE PRECISION": { default:"double", csharp:"double", python:"float",     java:"double",          typescript:"number",    javascript:"number",  go:"float64",  kotlin:"Double",        swift:"Double",   cpp:"double",               rust:"f64"              },
   BINARY_FLOAT: { default:"float",   csharp:"float",       python:"float",     java:"float",           typescript:"number",    javascript:"number",  go:"float32",  kotlin:"Float",         swift:"Float",    cpp:"float",                rust:"f32"              },
   BINARY_DOUBLE:{ default:"double",  csharp:"double",      python:"float",     java:"double",          typescript:"number",    javascript:"number",  go:"float64",  kotlin:"Double",        swift:"Double",   cpp:"double",               rust:"f64"              },
-  // Strings
   VARCHAR:      { default:"string",  csharp:"string",      python:"str",       java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
   VARCHAR2:     { default:"string",  csharp:"string",      python:"str",       java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
   NVARCHAR:     { default:"string",  csharp:"string",      python:"str",       java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
@@ -79,11 +74,9 @@ const TM: Record<string, TypeMap> = {
   NCLOB:        { default:"string",  csharp:"string",      python:"str",       java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
   STRING:       { default:"string",  csharp:"string",      python:"str",       java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
   "CHARACTER VARYING": { default:"string", csharp:"string", python:"str",      java:"String",          typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
-  // Boolean
   BIT:          { default:"bool",    csharp:"bool",        python:"bool",      java:"boolean",         typescript:"boolean",   javascript:"boolean", go:"bool",     kotlin:"Boolean",       swift:"Bool",     cpp:"bool",                 rust:"bool"             },
   BOOLEAN:      { default:"bool",    csharp:"bool",        python:"bool",      java:"boolean",         typescript:"boolean",   javascript:"boolean", go:"bool",     kotlin:"Boolean",       swift:"Bool",     cpp:"bool",                 rust:"bool"             },
   BOOL:         { default:"bool",    csharp:"bool",        python:"bool",      java:"boolean",         typescript:"boolean",   javascript:"boolean", go:"bool",     kotlin:"Boolean",       swift:"Bool",     cpp:"bool",                 rust:"bool"             },
-  // DateTime
   DATETIME:     { default:"DateTime",csharp:"DateTime",    python:"datetime",  java:"LocalDateTime",   typescript:"Date",      javascript:"Date",    go:"time.Time",kotlin:"LocalDateTime", swift:"Date",     cpp:"std::string",          rust:"NaiveDateTime"    },
   DATETIME2:    { default:"DateTime",csharp:"DateTime",    python:"datetime",  java:"LocalDateTime",   typescript:"Date",      javascript:"Date",    go:"time.Time",kotlin:"LocalDateTime", swift:"Date",     cpp:"std::string",          rust:"NaiveDateTime"    },
   SMALLDATETIME:{ default:"DateTime",csharp:"DateTime",    python:"datetime",  java:"LocalDateTime",   typescript:"Date",      javascript:"Date",    go:"time.Time",kotlin:"LocalDateTime", swift:"Date",     cpp:"std::string",          rust:"NaiveDateTime"    },
@@ -93,10 +86,8 @@ const TM: Record<string, TypeMap> = {
   TIME:         { default:"TimeOnly",csharp:"TimeOnly",    python:"time",      java:"LocalTime",       typescript:"string",    javascript:"string",  go:"time.Duration",kotlin:"LocalTime", swift:"Date",     cpp:"std::string",          rust:"NaiveTime"        },
   TIMETZ:       { default:"TimeOnly",csharp:"TimeOnly",    python:"time",      java:"OffsetTime",      typescript:"string",    javascript:"string",  go:"time.Duration",kotlin:"OffsetTime",swift:"Date",     cpp:"std::string",          rust:"NaiveTime"        },
   YEAR:         { default:"int",     csharp:"int",         python:"int",       java:"int",             typescript:"number",    javascript:"number",  go:"int32",    kotlin:"Int",           swift:"Int",      cpp:"int32_t",              rust:"i32"              },
-  // GUID/UUID
   UNIQUEIDENTIFIER: { default:"Guid",csharp:"Guid",        python:"UUID",      java:"UUID",            typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"UUID",     cpp:"std::string",          rust:"Uuid"             },
   UUID:         { default:"Guid",    csharp:"Guid",        python:"UUID",      java:"UUID",            typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"UUID",     cpp:"std::string",          rust:"Uuid"             },
-  // Binary
   BINARY:       { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
   VARBINARY:    { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
   BLOB:         { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
@@ -107,7 +98,6 @@ const TM: Record<string, TypeMap> = {
   BYTEA:        { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
   RAW:          { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
   ROWVERSION:   { default:"byte[]",  csharp:"byte[]",      python:"bytes",     java:"byte[]",          typescript:"Uint8Array",javascript:"Buffer",  go:"[]byte",   kotlin:"ByteArray",     swift:"Data",     cpp:"std::vector<uint8_t>", rust:"Vec<u8>"          },
-  // JSON / XML
   JSON:         { default:"object",  csharp:"object",      python:"dict",      java:"Object",          typescript:"unknown",   javascript:"object",  go:"interface{}",kotlin:"Any",         swift:"Any",      cpp:"std::string",          rust:"serde_json::Value"},
   JSONB:        { default:"object",  csharp:"object",      python:"dict",      java:"Object",          typescript:"unknown",   javascript:"object",  go:"interface{}",kotlin:"Any",         swift:"Any",      cpp:"std::string",          rust:"serde_json::Value"},
   XML:          { default:"string",  csharp:"XDocument",   python:"str",       java:"Document",        typescript:"string",    javascript:"string",  go:"string",   kotlin:"String",        swift:"String",   cpp:"std::string",          rust:"String"           },
@@ -136,14 +126,24 @@ function convName(raw: string, style: "pascal" | "camel" | "snake", mode: Naming
   return toSnakeCase(raw);
 }
 
-/* ── SQL Parser ──────────────────────────────────────────────── */
+/* ── Parsed model ────────────────────────────────────────────── */
 interface Column {
-  name: string; sqlType: string; isNullable: boolean;
-  isPrimaryKey: boolean; isAutoIncrement: boolean;
-  maxLength?: number; precision?: number; scale?: number;
+  name: string;
+  sqlType: string;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isAutoIncrement: boolean;
+  maxLength?: number;
+  precision?: number;
+  scale?: number;
 }
-interface ParsedTable { tableName: string; rawTableName: string; columns: Column[] }
+interface ParsedTable {
+  tableName: string;
+  rawTableName: string;
+  columns: Column[];
+}
 
+/* ── SQL Parser ──────────────────────────────────────────────── */
 function splitTopLevel(str: string, delim: string): string[] {
   const parts: string[] = []; let depth = 0, cur = "", inStr = false, sc = "";
   for (const ch of str) {
@@ -162,7 +162,6 @@ function splitTopLevel(str: string, delim: string): string[] {
 
 function parseColumn(def: string): Column | null {
   const trimmed = def.trim();
-  const up = trimmed.toUpperCase();
   if (!trimmed || /^(CONSTRAINT|PRIMARY\s+KEY|FOREIGN\s+KEY|UNIQUE|INDEX|KEY\s|CHECK\s*\()/i.test(trimmed)) return null;
 
   let name: string;
@@ -203,7 +202,7 @@ function parseColumn(def: string): Column | null {
 }
 
 function parseSQL(sql: string): ParsedTable {
-  let s = sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim();
+  const s = sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\s+/g, " ").trim();
   const cm = s.match(/CREATE\s+(?:OR\s+REPLACE\s+)?(?:GLOBAL\s+|TEMPORARY\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([`"\[]?[\w][\w\s."`\[\]]*?)\s*\(/i);
   if (!cm) throw new Error("Could not find a CREATE TABLE statement.");
 
@@ -240,7 +239,7 @@ function parseSQL(sql: string): ParsedTable {
 }
 
 /* ── JSON Parser ─────────────────────────────────────────────── */
-function inferJsonType(val: any): string {
+function inferJsonType(val: unknown): string {
   if (val === null) return "JSON";
   if (typeof val === "boolean") return "BOOLEAN";
   if (typeof val === "number") {
@@ -251,26 +250,22 @@ function inferJsonType(val: any): string {
     return "FLOAT";
   }
   if (typeof val === "string") {
-    // Detect date/time
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(val)) return "DATETIME";
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return "DATE";
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)) return "UUID";
     return "VARCHAR";
   }
-  if (Array.isArray(val)) return "JSON";
-  if (typeof val === "object") return "JSON";
-  return "VARCHAR";
+  return "JSON";
 }
 
 function parseJSON(jsonStr: string): ParsedTable {
-  let data: any;
+  let data: unknown;
   try {
     data = JSON.parse(jsonStr);
   } catch (e) {
     throw new Error("Invalid JSON: " + (e as Error).message);
   }
 
-  // If it's an array, use the first element
   if (Array.isArray(data)) {
     if (!data.length) throw new Error("JSON array is empty. Please provide at least one object.");
     data = data[0];
@@ -280,32 +275,37 @@ function parseJSON(jsonStr: string): ParsedTable {
     throw new Error("JSON must be an object or an array of objects.");
   }
 
-  // Try to find a sensible table name
   let tableName = "Root";
-  const keys = Object.keys(data);
-  if (keys.length === 1 && typeof data[keys[0]] === "object" && data[keys[0]] !== null && !Array.isArray(data[keys[0]])) {
-    tableName = keys[0];
-    data = data[keys[0]];
-  } else if (keys.length === 1 && Array.isArray(data[keys[0]]) && data[keys[0]].length > 0) {
-    tableName = keys[0];
-    data = data[keys[0]][0];
+  const obj = data as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  if (keys.length === 1) {
+    const only = obj[keys[0]];
+    if (Array.isArray(only) && only.length > 0 && typeof only[0] === "object" && only[0] !== null) {
+      tableName = keys[0];
+      data = only[0];
+    } else if (typeof only === "object" && only !== null && !Array.isArray(only)) {
+      tableName = keys[0];
+      data = only;
+    }
   }
 
   const cleanRawName = tableName.replace(/[^a-zA-Z0-9_]/g, "_");
   const pascalName = toPascalCase(cleanRawName);
 
   const columns: Column[] = [];
-  for (const [key, val] of Object.entries(data)) {
+  const finalObj = data as Record<string, unknown>;
+  for (const [key, val] of Object.entries(finalObj)) {
     const sqlType = inferJsonType(val);
     const isNullable = val === null;
-    const col: Column = {
+    const lower = key.toLowerCase();
+    const isId = lower === "id" || lower === `${cleanRawName.toLowerCase()}_id` || lower === `${cleanRawName.toLowerCase()}id`;
+    columns.push({
       name: key,
       sqlType,
       isNullable,
-      isPrimaryKey: key.toLowerCase() === "id" || key.toLowerCase() === `${cleanRawName.toLowerCase()}_id` || key.toLowerCase() === `${cleanRawName.toLowerCase()}id`,
+      isPrimaryKey: isId,
       isAutoIncrement: false,
-    };
-    columns.push(col);
+    });
   }
 
   if (!columns.length) throw new Error("No properties found in the JSON object.");
@@ -313,74 +313,81 @@ function parseJSON(jsonStr: string): ParsedTable {
 }
 
 /* ── XML Parser ──────────────────────────────────────────────── */
+function inferXmlType(text: string): string {
+  const t = text.trim();
+  if (/^-?\d+$/.test(t)) {
+    const n = parseInt(t, 10);
+    return n >= -2147483648 && n <= 2147483647 ? "INT" : "BIGINT";
+  }
+  if (/^-?\d*\.\d+$/.test(t)) return "DECIMAL";
+  if (/^(true|false)$/i.test(t)) return "BOOLEAN";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(t)) return "DATETIME";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return "DATE";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return "UUID";
+  return "VARCHAR";
+}
+
+function widenType(a: string, b: string): string {
+  if (a === b) return a;
+  const order = ["INT", "BIGINT", "DECIMAL", "FLOAT"];
+  if (order.includes(a) && order.includes(b)) {
+    return order[Math.max(order.indexOf(a), order.indexOf(b))];
+  }
+  if (a === "VARCHAR" || b === "VARCHAR") return "VARCHAR";
+  return a;
+}
+
 function parseXML(xmlStr: string): ParsedTable {
+  if (typeof DOMParser === "undefined") {
+    throw new Error("XML parsing is only available in the browser.");
+  }
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlStr, "text/xml");
 
   const parseError = doc.querySelector("parsererror");
   if (parseError) {
-    throw new Error("Invalid XML: " + parseError.textContent?.slice(0, 200));
+    throw new Error("Invalid XML: " + (parseError.textContent || "").slice(0, 200));
   }
 
   const root = doc.documentElement;
   if (!root) throw new Error("XML document has no root element.");
 
-  // If root has a single child that is an element, use that as the record root
   let recordNode: Element = root;
   const elementChildren = Array.from(root.children);
-  if (elementChildren.length === 1) {
+  if (elementChildren.length === 1 && elementChildren[0].children.length > 0) {
     recordNode = elementChildren[0];
   }
 
-  // Collect all unique child element names and infer types
-  const fieldMap = new Map<string, { type: string; nullable: boolean }>();
   const rows = Array.from(recordNode.children);
   if (!rows.length) throw new Error("XML contains no child elements to convert into columns.");
 
+  const fieldMap = new Map<string, { type: string; nullable: boolean }>();
   for (const row of rows) {
     for (const child of Array.from(row.children)) {
       const key = child.tagName;
-      const text = child.textContent?.trim() || "";
-      let type = "VARCHAR";
-      if (/^-?\d+$/.test(text)) {
-        const n = parseInt(text);
-        type = (n >= -2147483648 && n <= 2147483647) ? "INT" : "BIGINT";
-      } else if (/^-?\d*\.\d+$/.test(text)) {
-        type = "DECIMAL";
-      } else if (/^(true|false)$/i.test(text)) {
-        type = "BOOLEAN";
-      } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(text)) {
-        type = "DATETIME";
-      } else if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-        type = "DATE";
-      } else if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) {
-        type = "UUID";
-      }
-      if (!fieldMap.has(key)) {
+      const text = (child.textContent || "").trim();
+      const type = inferXmlType(text);
+      const existing = fieldMap.get(key);
+      if (!existing) {
         fieldMap.set(key, { type, nullable: false });
       } else {
-        const existing = fieldMap.get(key)!;
-        // Prefer more general types
-        if (existing.type !== type) {
-          if (existing.type === "INT" && type === "BIGINT") existing.type = "BIGINT";
-          else if (existing.type === "INT" && type === "DECIMAL") existing.type = "DECIMAL";
-          else if (existing.type === "BIGINT" && type === "DECIMAL") existing.type = "DECIMAL";
-          else if (type === "VARCHAR" || existing.type === "VARCHAR") existing.type = "VARCHAR";
-        }
+        existing.type = widenType(existing.type, type);
       }
     }
   }
 
-  const cleanRawName = root.tagName.replace(/[^a-zA-Z0-9_]/g, "_") || "Root";
+  const cleanRawName = (root.tagName || "Root").replace(/[^a-zA-Z0-9_]/g, "_") || "Root";
   const pascalName = toPascalCase(cleanRawName);
 
   const columns: Column[] = [];
   for (const [key, info] of fieldMap) {
+    const lower = key.toLowerCase();
+    const isId = lower === "id" || lower === `${cleanRawName.toLowerCase()}_id` || lower === `${cleanRawName.toLowerCase()}id`;
     columns.push({
       name: key,
       sqlType: info.type,
       isNullable: info.nullable,
-      isPrimaryKey: key.toLowerCase() === "id" || key.toLowerCase() === `${cleanRawName.toLowerCase()}_id` || key.toLowerCase() === `${cleanRawName.toLowerCase()}id`,
+      isPrimaryKey: isId,
       isAutoIncrement: false,
     });
   }
@@ -389,7 +396,7 @@ function parseXML(xmlStr: string): ParsedTable {
   return { tableName: pascalName, rawTableName: cleanRawName, columns };
 }
 
-/* ── Unified Parser ──────────────────────────────────────────── */
+/* ── Unified parser ──────────────────────────────────────────── */
 function parseInput(input: string, dialect: string): ParsedTable {
   if (dialect === "json") return parseJSON(input);
   if (dialect === "xml")  return parseXML(input);
@@ -413,13 +420,21 @@ function nullable(base: string, col: Column, lang: string): string {
   switch (lang) {
     case "csharp":     return `${base}?`;
     case "python":     return `Optional[${base}]`;
-    case "java":       return base === "int" ? "Integer" : base === "long" ? "Long" : base === "short" ? "Short" : base === "byte" ? "Byte" : base === "boolean" ? "Boolean" : base === "float" ? "Float" : base === "double" ? "Double" : base;
+    case "java":
+      if (base === "int")     return "Integer";
+      if (base === "long")    return "Long";
+      if (base === "short")   return "Short";
+      if (base === "byte")    return "Byte";
+      if (base === "boolean") return "Boolean";
+      if (base === "float")   return "Float";
+      if (base === "double")  return "Double";
+      return base;
     case "typescript": return `${base} | null`;
     case "javascript": return base;
     case "go":         return base === "bool" ? "*bool" : base.startsWith("[]") ? base : `*${base}`;
     case "kotlin":     return `${base}?`;
     case "swift":      return `${base}?`;
-    case "cpp":        return base === "bool" || base.startsWith("int") || base === "double" || base === "float" ? `std::optional<${base}>` : `std::optional<${base}>`;
+    case "cpp":        return `std::optional<${base}>`;
     case "rust":       return `Option<${base}>`;
     default:           return base;
   }
@@ -454,14 +469,14 @@ function genCSharp({ tableName, rawTableName, columns }: ParsedTable, mode: Nami
 
 function genPython({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
   const cls = mode === "exact" ? rawTableName : tableName;
-  const imports = new Set<string>(["from dataclasses import dataclass, field", "from typing import Optional"]);
+  const imports = new Set<string>(["from dataclasses import dataclass", "from typing import Optional"]);
   for (const col of columns) {
     const t = getBaseType(col, "python");
-    if (t === "datetime" || t === "date" || t === "time")  imports.add("from datetime import datetime, date, time");
+    if (t === "datetime" || t === "date" || t === "time") imports.add("from datetime import datetime, date, time");
     if (t === "Decimal") imports.add("from decimal import Decimal");
     if (t === "UUID")    imports.add("from uuid import UUID");
   }
-  const lines = [...imports, "", "", `@dataclass`, `class ${cls}:`];
+  const lines = [...imports, "", "", "@dataclass", `class ${cls}:`];
   for (const col of columns) {
     const base = getBaseType(col, "python");
     const type = nullable(base, col, "python");
@@ -477,9 +492,7 @@ function genJava({ tableName, rawTableName, columns }: ParsedTable, mode: Naming
   const imports = new Set<string>(["import jakarta.persistence.*;", "import java.io.Serializable;"]);
   for (const col of columns) {
     const t = getBaseType(col, "java");
-    if (t === "LocalDateTime" || t === "OffsetDateTime") imports.add("import java.time.*;");
-    if (t === "LocalDate")  imports.add("import java.time.*;");
-    if (t === "LocalTime")  imports.add("import java.time.*;");
+    if (t === "LocalDateTime" || t === "OffsetDateTime" || t === "LocalDate" || t === "LocalTime") imports.add("import java.time.*;");
     if (t === "BigDecimal") imports.add("import java.math.BigDecimal;");
     if (t === "UUID")       imports.add("import java.util.UUID;");
   }
@@ -526,8 +539,8 @@ function genTypeScript({ tableName, rawTableName, columns }: ParsedTable, mode: 
   }
   lines.push("}");
   const keyField = convName(columns.find(c => c.isPrimaryKey || c.isAutoIncrement)?.name || "id", "camel", mode);
-  lines.push("", `export type Create${cls} = Omit<${cls}, '${keyField}' >;`);
-  lines.push(`export type Update${cls} = Partial<${cls}> & Pick<${cls}, '${keyField}' >;`);
+  lines.push("", `export type Create${cls} = Omit<${cls}, '${keyField}'>;`);
+  lines.push(`export type Update${cls} = Partial<${cls}> & Pick<${cls}, '${keyField}'>;`);
   return lines.join("\n");
 }
 
@@ -535,7 +548,11 @@ function genJavaScript({ tableName, rawTableName, columns }: ParsedTable, mode: 
   const cls = mode === "exact" ? rawTableName : tableName;
   const fields = columns.map(col => {
     const fieldName = convName(col.name, "camel", mode);
-    const defVal    = col.isNullable ? "null" : col.sqlType.includes("INT") || col.sqlType.includes("FLOAT") || col.sqlType.includes("DECIMAL") || col.sqlType.includes("NUMBER") ? "0" : col.sqlType.includes("BIT") || col.sqlType.includes("BOOL") ? "false" : col.sqlType.includes("DATE") || col.sqlType.includes("TIME") ? "new Date()" : '""';
+    const defVal =
+      col.isNullable ? "null" :
+      /INT|FLOAT|DECIMAL|NUMBER|DOUBLE|REAL/.test(col.sqlType) ? "0" :
+      /BIT|BOOL/.test(col.sqlType) ? "false" :
+      /DATE|TIME/.test(col.sqlType) ? "new Date()" : '""';
     return `        /** @type {${getBaseType(col, "typescript")}} */\n        this.${fieldName} = ${defVal};`;
   });
   return [
@@ -551,11 +568,14 @@ function genJavaScript({ tableName, rawTableName, columns }: ParsedTable, mode: 
 
 function genGo({ tableName, rawTableName, columns }: ParsedTable, mode: NamingMode): string {
   const cls = mode === "exact" ? rawTableName : tableName;
-  const needsTime = columns.some(c => getBaseType(c, "go") === "time.Time" || getBaseType(c, "go") === "time.Duration");
+  const needsTime = columns.some(c => {
+    const t = getBaseType(c, "go");
+    return t === "time.Time" || t === "time.Duration";
+  });
   const lines = [
     "package models",
     "",
-    ...(needsTime ? ["import \"time\"", ""] : []),
+    ...(needsTime ? ['import "time"', ""] : []),
     `type ${cls} struct {`,
   ];
   for (const col of columns) {
@@ -638,7 +658,7 @@ function genCpp({ tableName, rawTableName, columns }: ParsedTable, mode: NamingM
     const base = getBaseType(col, "cpp");
     const type = nullable(base, col, "cpp");
     const fieldName = convName(col.name, "snake", mode);
-    const defVal = col.isNullable && !col.isPrimaryKey ? "" : base === "bool" ? "{ false }" : base.includes("string") ? "" : base.includes("vector") ? "" : "{}";
+    const defVal = col.isNullable && !col.isPrimaryKey ? "" : base === "bool" ? "{ false }" : base.includes("string") || base.includes("vector") ? "" : "{}";
     lines.push(`    ${type.padEnd(30)} ${fieldName}${defVal};`);
   }
   lines.push("};");
@@ -652,12 +672,12 @@ function genRust({ tableName, rawTableName, columns }: ParsedTable, mode: Naming
   const needsSerde  = columns.some(c => getBaseType(c, "rust") === "serde_json::Value");
   const lines = [
     ...(needsChrono ? ["use chrono::{NaiveDateTime, NaiveDate, NaiveTime, DateTime, Utc};"] : []),
-    ...(needsUuid   ? ["use uuid::Uuid;"]              : []),
-    ...(needsSerde  ? ["use serde_json;"]               : []),
+    ...(needsUuid   ? ["use uuid::Uuid;"] : []),
+    ...(needsSerde  ? ["use serde_json;"] : []),
     "use serde::{Deserialize, Serialize};",
     "",
     "#[derive(Debug, Clone, Serialize, Deserialize)]",
-    ...(mode === "convention" ? ["#[serde(rename_all = \"snake_case\")]"] : []),
+    ...(mode === "convention" ? ['#[serde(rename_all = "snake_case")]'] : []),
     `pub struct ${cls} {`,
   ];
   for (const col of columns) {
@@ -692,7 +712,7 @@ function generateCode(table: ParsedTable, lang: string, mode: NamingMode): strin
   }
 }
 
-/* ── Sample data per dialect ─────────────────────────────────── */
+/* ── Samples ─────────────────────────────────────────────────── */
 const SAMPLES: Record<string, string> = {
   sqlserver: `CREATE TABLE [dbo].[Users] (
     [UserId]       INT             IDENTITY(1,1)  NOT NULL,
@@ -815,7 +835,7 @@ export default function SqlToModel() {
   const [copied,  setCopied]  = useState(false);
 
   const selectedLang = TARGET_LANGS.find(l => l.value === lang)!;
-  const isSql = !["json", "xml"].includes(dialect);
+  const isSql = dialect !== "json" && dialect !== "xml";
 
   const convert = () => {
     setError(""); setOutput("");
@@ -823,14 +843,14 @@ export default function SqlToModel() {
       const table = parseInput(input, dialect);
       setOutput(generateCode(table, lang, mode));
     } catch (e) {
-      setError(String(e).replace("Error: ", ""));
+      setError(String(e).replace(/^Error:\s*/, ""));
     }
   };
 
   const loadSample = () => { setInput(SAMPLES[dialect] || ""); setOutput(""); setError(""); };
 
   const copyOutput = async () => {
-    try { await navigator.clipboard.writeText(output); } catch { /**/ }
+    try { await navigator.clipboard.writeText(output); } catch { /* ignore */ }
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
@@ -838,8 +858,10 @@ export default function SqlToModel() {
     if (!output) return;
     const blob = new Blob([output], { type: "text/plain" });
     const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a"); a.href = url;
-    a.download = `model.${selectedLang.ext}`; a.click();
+    const a    = document.createElement("a");
+    a.href = url;
+    a.download = `model.${selectedLang.ext}`;
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -897,13 +919,16 @@ export default function SqlToModel() {
           </div>
 
           <div style={{ marginLeft:"auto", display:"flex", gap:8, alignItems:"flex-end" }}>
-            <button onClick={loadSample} style={{ padding:"8px 16px", borderRadius:9, fontSize:12, fontWeight:600, cursor:"pointer", background:"rgba(37,99,235,0.07)", color:accent, border:"1.5px solid rgba(37,99,235,0.2)" }}>
+            <button
+              onClick={loadSample}
+              style={{ padding:"8px 16px", borderRadius:9, fontSize:12, fontWeight:600, cursor:"pointer", background:"rgba(37,99,235,0.07)", color:accent, border:"1.5px solid rgba(37,99,235,0.2)" }}
+            >
               Load Example
             </button>
             <button
               onClick={convert}
               disabled={!input.trim()}
-              style={{ padding:"9px 24px", borderRadius:9, fontSize:13, fontWeight:700, cursor:input.trim()?"pointer":"not-allowed", background:`linear-gradient(135deg,#2563eb,#1d4ed8)`, color:"#fff", border:"none", boxShadow:`0 4px 14px ${glow}`, opacity:input.trim()?1:0.5 }}
+              style={{ padding:"9px 24px", borderRadius:9, fontSize:13, fontWeight:700, cursor:input.trim()?"pointer":"not-allowed", background:"linear-gradient(135deg,#2563eb,#1d4ed8)", color:"#fff", border:"none", boxShadow:`0 4px 14px ${glow}`, opacity:input.trim()?1:0.5 }}
             >
               Convert →
             </button>
@@ -917,7 +942,6 @@ export default function SqlToModel() {
         )}
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-
           <div>
             <label style={{ fontSize:11, fontWeight:700, color:"rgba(15,10,30,0.4)", letterSpacing:"0.07em", textTransform:"uppercase", display:"block", marginBottom:6 }}>
               {isSql ? "SQL — CREATE TABLE" : dialect === "json" ? "JSON Input" : "XML Input"}
@@ -927,10 +951,10 @@ export default function SqlToModel() {
               onChange={e => setInput(e.target.value)}
               placeholder={
                 isSql
-                  ? `Paste your CREATE TABLE SQL here…\n\nExample:\nCREATE TABLE [dbo].[Users] (\n    [UserId]   INT IDENTITY(1,1) NOT NULL,\n    [Username] NVARCHAR(100)     NOT NULL,\n    …\n);`
+                  ? "Paste your CREATE TABLE SQL here…\n\nExample:\nCREATE TABLE [dbo].[Users] (\n    [UserId]   INT IDENTITY(1,1) NOT NULL,\n    [Username] NVARCHAR(100)     NOT NULL,\n    …\n);"
                   : dialect === "json"
-                  ? `Paste your JSON here…\n\nExample:\n{\n  "id": 1,\n  "username": "johndoe",\n  "email": "john@example.com",\n  "isActive": true\n}`
-                  : `Paste your XML here…\n\nExample:\n<user>\n  <id>1</id>\n  <username>johndoe</username>\n  <email>john@example.com</email>\n</user>`
+                  ? 'Paste your JSON here…\n\nExample:\n{\n  "id": 1,\n  "username": "johndoe",\n  "email": "john@example.com",\n  "isActive": true\n}'
+                  : "Paste your XML here…\n\nExample:\n<user>\n  <id>1</id>\n  <username>johndoe</username>\n  <email>john@example.com</email>\n</user>"
               }
               spellCheck={false}
               style={{
